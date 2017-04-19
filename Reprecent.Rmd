@@ -21,7 +21,6 @@ theme_set(theme_bw())
 ## 年率換算されているので四半期毎の値に戻して、LGDの値で除算
 ## 各期の純粋なデフォルト率のデータになっているはず
 ```{r}
-nowdirectory <- getwd()
 charge_off_data <- read.table('data/N_FRB_CHGDEL.csv',encoding='utf-8',sep=',')
 
 
@@ -103,7 +102,7 @@ Stderrorはどうやって計算するのか見当がつかなかったので保
 ```{r}
 Regression_on_constant <- {}
 for(i in 1:6){
-tmp <- data.frame(y = pnorm_co_data[1:91,i],x = pnorm_co_data[2:92,i])
+tmp <- data.frame(y = pnorm_co_data[2:92,i],x = pnorm_co_data[1:91,i])
 fit <- lm(y ~ x ,data=tmp)
 Regression_on_constant <- c(Regression_on_constant,list(summary(fit)))
 }
@@ -118,17 +117,17 @@ beta_ <- sapply(Regression_on_constant,function(x) x$coefficients['x','Estimate'
 beta_error <- sapply(Regression_on_constant,function(x) x$coefficients['x','Std. Error'])
 factor_correlation <- c()
 for(i in 1:6){
-  f <- function (rho) Regression_residual_volatility[i]^2 - (rho*(1-beta_[i])/(1-rho))
-  factor_correlation <- c(factor_correlation,uniroot(f,c(0,1-1e-10))$root)
+  f <- function (rho) sqrt((Regression_residual_volatility[i]^2 - rho*(1-beta_[i])/(1-rho))^2)
+  factor_correlation <- c(factor_correlation,optimize(f,c(0,1-1e-10))$minimum)
 }
 un_defalut_rate <- c()
 for(i in c(1:6)){
   f <- function(q)
-    sum(sqrt((
+    -sum(log(dnorm((
       pnorm_co_data[2:92,i]-
         sqrt(beta_[i])*pnorm_co_data[1:91,i]-
-        ((1-sqrt(beta_[i]))/sqrt(1-factor_correlation[i]))*qnorm(q))^2)
-      )
+        ((1-sqrt(beta_[i]))/sqrt(1-factor_correlation[i]))*qnorm(q))
+      )))
   un_defalut_rate <- c(un_defalut_rate,optimize(f, c(0+1e-10,1-1e-10), tol = 0.0001)$minimum)
 }
 
@@ -142,11 +141,18 @@ table_2
 
 ### $\eta_t$のプロット　式に従って計算
 ### それっぽいけどy軸が結構違う
+
+式(33)を変換したものと、と式(34)から$\eta_t$を計算
+$$
+\tilde{\theta_t} = \frac{\Phi(q)^{-1} - \sqrt{\rho}X_t}{\sqrt{1-\rho}} から\\
+X_t = \frac{\Phi(q)^{-1}-\sqrt{1-\rho}\tilde{\theta_t}}{\sqrt{\rho}} \\
+\eta_t = \frac{X_t-\sqrt{\beta}X_{t-1}}{\sqrt{1-\beta}}
+$$
 ```{r}
-tmp_X<- t(-(t(pnorm_co_data)*sqrt(1-factor_correlation)-qnorm(un_defalut_rate))/sqrt(factor_correlation))
+X_t<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
+plot_d <- t((t(X_t[2:92,])-sqrt(beta_)*t(X_t[1:91,]))/sqrt(1-beta_))
 
-plot_d <- t((t(tmp_X[2:92,])-sqrt(beta_)*t(tmp_X[1:91,])-1)/(1-beta_))
 
-plot_d %>% melt() %>% ggplot(aes(x=Var1,y=value)) + geom_line() + facet_wrap(~Var2,ncol=3,scales = 'free_y')
+data.frame(dt=date[-length(date)],plot_d) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
 ```
 
