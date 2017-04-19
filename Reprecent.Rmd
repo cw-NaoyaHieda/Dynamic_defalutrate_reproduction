@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
 library(dplyr)
 library(reshape2)
 library(ggplot2)
+library(car)
+library(normtest)
 theme_set(theme_bw())
 ```
 
@@ -100,11 +102,11 @@ Stderrorはどうやって計算するのか見当がつかなかったので保
 ### 自己相関を持つ場合を考えるので(25)の$\beta\neq0$で考える
 ### 一期前の値に対して線形回帰
 ```{r}
-Regression_on_constant <- {}
+Regression_AR <- {}
 for(i in 1:6){
 tmp <- data.frame(y = pnorm_co_data[2:92,i],x = pnorm_co_data[1:91,i])
 fit <- lm(y ~ x ,data=tmp)
-Regression_on_constant <- c(Regression_on_constant,list(summary(fit)))
+Regression_AR <- c(Regression_AR,list(summary(fit)))
 }
 ```
 ### 回帰誤差ボラティリティ(残差の標準偏差)は先程と同じように取り出せる
@@ -112,9 +114,9 @@ Regression_on_constant <- c(Regression_on_constant,list(summary(fit)))
 ### $\rho$は分散からの最適化で先ほどと同じ
 ### qは式が複雑になるが先ほどと同じ
 ```{r}
-Regression_residual_volatility <- sapply(Regression_on_constant,function(x)sqrt(var(x$residuals)))
-beta_ <- sapply(Regression_on_constant,function(x) x$coefficients['x','Estimate']^2)
-beta_error <- sapply(Regression_on_constant,function(x) x$coefficients['x','Std. Error'])
+Regression_residual_volatility <- sapply(Regression_AR,function(x)sqrt(var(x$residuals)))
+beta_ <- sapply(Regression_AR,function(x) x$coefficients['x','Estimate']^2)
+beta_error <- sapply(Regression_AR,function(x) x$coefficients['x','Std. Error'])
 factor_correlation <- c()
 for(i in 1:6){
   f <- function (rho) sqrt((Regression_residual_volatility[i]^2 - rho*(1-beta_[i])/(1-rho))^2)
@@ -139,8 +141,8 @@ table_2
 
 # 4 Factors and Correlations
 
+## 4.1 Specification Tests
 ### $\eta_t$のプロット　式に従って計算
-### それっぽいけどy軸が結構違う
 
 式(33)を変換したものと、と式(34)から$\eta_t$を計算
 $$
@@ -155,4 +157,20 @@ plot_d <- t((t(X_t[2:92,])-sqrt(beta_)*t(X_t[1:91,]))/sqrt(1-beta_))
 
 data.frame(dt=date[-length(date)],plot_d) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
 ```
+
+### Durbin-Watoson-Testを用いて、回帰の残差における自己相関を検定する。
+[Durbin-Watoson-Test](http://business.nikkeibp.co.jp/atclbdt/15/recipe/121100041/?ST=print)
+### Jarque-Bera-Testを用いて、歪度と尖度が正規性の値から統計的に有意に異なるか検定する。モンテカルロ計算らしいがこっちは明らかに表と値が違う。
+[Jarque-Bera-Test](https://ja.wikipedia.org/wiki/%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E2%80%93%E3%83%99%E3%83%A9%E6%A4%9C%E5%AE%9A)
+```{r}
+DW_test <- sapply(Regression_AR,function(x) durbinWatsonTest(x$residuals))
+DW_test
+JB_test <- sapply(Regression_AR,function(x) ajb.norm.test(x$residuals,nrepl = 1000)['statistic'])
+t(JB_test)
+
+```
+
+
+
+## 4.2 Factor Correlations
 
