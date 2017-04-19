@@ -1,0 +1,76 @@
+---
+title: "Repuroduction"
+author: "Naoya Hieda"
+date: "2017年4月19日"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
+
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+theme_set(theme_bw())
+```
+
+#3.Emrical Implementation
+[Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
+
+## データの読み込みと必要なデータの抜き出し
+## 年率換算されているので四半期毎の値に戻して、LGDの値で除算
+## 各期の純粋なデフォルト率のデータになっているはず
+```{r}
+charge_off_data <- read.table('C:/Users/naoya/Desktop/Graduage_study/data/Dynamic_defalur_rate/N_FRB_CHGDEL.csv',encoding='utf-8',sep=',')
+
+
+#ネット上とcsvで列の順番が違うので注意
+repro_data <- charge_off_data[7:98,c(5,9,10,8,4,3)] %>% apply(2,as.numeric)
+colnames(repro_data) <- c('RE','CC','OC','L','CI','A')
+#各シリーズのLGD(Loss given defalut を除算) データが年率に変換されているのでそこも修正
+LGD <- c(0.35,0.65,0.65,0.45,0.45,0.45)
+co_data <- t(repro_data)/4/LGD
+co_data <- ts(t(co_data), frequency = 4, start = c(1985,1))
+#ちょっと強引に四半期時系列生成
+date <- time(co_data) %>% c() %>% as.numeric()
+ggplot(co_data %>% melt,aes(x=date[Var1],y=value))+geom_line()+
+  facet_wrap(~Var2,scales="free_y",ncol=3)+
+  xlab('Year')+ylab('Defalut Rate(%)')
+colMeans(co_data)
+sqrt(colMeans(co_data^2)-colMeans(co_data)^2)
+```
+
+### 見た目も平均も、論文のものとはちょっとだけずれてしまう
+### 元データが、論文のころは四半期でそのまま表示されていたが、現在は各期の値が年率換算されているため。
+### ボラティリティは比較的近い値になった
+### なぜか2005年4月Aのデフォルト率がマイナス扱いなので、1e-10にしておく
+### この後のAに関する計算結果はずっとおかしいけどしょうがない
+```{r}
+co_data[co_data<0] <- 1e-10
+```
+### 元のデータを小数点表示に直してから 単純に標準正規分布cdfの逆数$\Phi^{-1}$で変換したもの
+```{r}
+pnorm_co_data <- qnorm(co_data/100)
+```
+### regression on constant が lm(r ~ 0)で実装できるようなので
+```{r}
+Regression_on_constant <- {}
+for(i in 1:6){
+tmp <- data.frame(y = pnorm_co_data[,i])
+fit <- lm(y ~ 0,data=tmp)
+Regression_on_constant <- c(Regression_on_constant,list(summary(fit)))
+}
+```
+### 回帰誤差ボラティリティ(残差の標準偏差)
+```{r}
+Regression_residual_volatility <- sapply(Regression_on_constant,function(x)sqrt(var(x$residuals)))
+```
+## beta=0で(24)(25)が成り立っていると考えればいい?
+$$
+\tilde{\theta}_t=\sqrt{\beta}\tilde{\theta}_{t-1}+\frac{(1-\sqrt{\beta})}{\sqrt{1-\rho}}\Phi^{-1}(q)-\frac{\sqrt{\rho}\sqrt{1-\beta}}{\sqrt{1-\rho}}\eta_t\\
+\tilde{\theta_t} = \Phi^{-1}(\theta_t)\sim N(\sqrt{\beta}\tilde{\theta}_{t-1}+\frac{(1-\sqrt{\beta})}{\sqrt{1-\rho}}\Phi^{-1}(q),\frac{\rho(1-\beta)}{1-\rho})\\
+\\\\
+\beta=0のとき,\\
+\tilde{\theta}=\frac{1}{\sqrt{1-\rho}}\Phi^{-1}(q)-\frac{\sqrt{\rho}}{\sqrt{1-\rho}}\eta_t\\
+\tilde{\theta} = N(\frac{1}{\sqrt{1-\rho}}\Phi^{-1}(q),\frac{\rho}{1-\rho})
+$$
