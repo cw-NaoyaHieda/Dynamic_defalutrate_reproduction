@@ -21,7 +21,8 @@ theme_set(theme_bw())
 ## 年率換算されているので四半期毎の値に戻して、LGDの値で除算
 ## 各期の純粋なデフォルト率のデータになっているはず
 ```{r}
-charge_off_data <- read.table('C:/Users/naoya/Desktop/Graduage_study/data/Dynamic_defalur_rate/N_FRB_CHGDEL.csv',encoding='utf-8',sep=',')
+nowdirectory <- getwd()
+charge_off_data <- read.table('data/N_FRB_CHGDEL.csv',encoding='utf-8',sep=',')
 
 
 #ネット上とcsvで列の順番が違うので注意
