@@ -74,3 +74,68 @@ $$
 \tilde{\theta}=\frac{1}{\sqrt{1-\rho}}\Phi^{-1}(q)-\frac{\sqrt{\rho}}{\sqrt{1-\rho}}\eta_t\\
 \tilde{\theta} = N(\frac{1}{\sqrt{1-\rho}}\Phi^{-1}(q),\frac{\rho}{1-\rho})
 $$
+
+## ニュートン法で最適化 分散から相関係数$\rho$を推定して、平均から無条件デフォルト確率qを推定する
+```{r}
+factor_correlation <- c()
+for(sd_2 in Regression_residual_volatility^2){
+  f <- function (rho) sd_2 - rho/(1-rho)
+  factor_correlation <- c(factor_correlation,uniroot(f,c(0,1-1e-10))$root)
+}
+un_defalut_rate <- c()
+for(i in c(1:6)){
+  f <- function (q) qnorm(q)/sqrt(1 - factor_correlation[i]) - colMeans(pnorm_co_data)[i]
+  un_defalut_rate <- c(un_defalut_rate,uniroot(f,c(0,1-1e-10))$root)
+}
+```
+## 論文と同じ表形式で表示
+```{r}
+table_1 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,0,un_defalut_rate*100,0))
+colnames(table_1) <-  c('RE','CC','OC','L','CI','A')
+rownames(table_1) <- c('Regression_residual_volatility(%)','factor_correlation(%)','std_error_rho(%)','un_defalut_rate(%)','std_error_q(%)')
+table_1
+```
+Stderrorはどうやって計算するのか見当がつかなかったので保留  
+
+### 自己相関を持つ場合を考えるので(25)の$\beta\neq0$で考える
+### 一期前の値に対して線形回帰
+```{r}
+Regression_on_constant <- {}
+for(i in 1:6){
+tmp <- data.frame(y = pnorm_co_data[1:91,i],x = pnorm_co_data[2:92,i])
+fit <- lm(y ~ x ,data=tmp)
+Regression_on_constant <- c(Regression_on_constant,list(summary(fit)))
+}
+```
+### 回帰誤差ボラティリティ(残差の標準偏差)は先程と同じように取り出せる
+### $\beta$は回帰の係数
+### $\rho$は分散からの最適化で先ほどと同じ
+### qは式が複雑になるが先ほどと同じ
+```{r}
+Regression_residual_volatility <- sapply(Regression_on_constant,function(x)sqrt(var(x$residuals)))
+beta_ <- sapply(Regression_on_constant,function(x) x$coefficients['x','Estimate']^2)
+beta_error <- sapply(Regression_on_constant,function(x) x$coefficients['x','Std. Error'])
+factor_correlation <- c()
+for(i in 1:6){
+  f <- function (rho) Regression_residual_volatility[i]^2 - (rho*(1-beta_[i])/(1-rho))
+  factor_correlation <- c(factor_correlation,uniroot(f,c(0,1-1e-10))$root)
+}
+un_defalut_rate <- c()
+for(i in c(1:6)){
+  f <- function(q)
+    sum(sqrt((
+      pnorm_co_data[2:92,i]-
+        sqrt(beta_[i])*pnorm_co_data[1:91,i]-
+        ((1-sqrt(beta_[i]))/sqrt(1-factor_correlation[i]))*qnorm(q))^2)
+      )
+  un_defalut_rate <- c(un_defalut_rate,optimize(f, c(0+1e-10,1-1e-10), tol = 0.0001)$minimum)
+}
+
+table_2 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,0,un_defalut_rate*100,0,beta_*100,beta_error*100))
+colnames(table_2) <-  c('RE','CC','OC','L','CI','A')
+rownames(table_2) <- c('Regression_residual_volatility(%)','factor_correlation(%)','std_error_rho(%)','un_defalut_rate(%)','std_error_q(%)','beta(%)','std_error_beta(%)')
+table_2
+```
+
+
+
