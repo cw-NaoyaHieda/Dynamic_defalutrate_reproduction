@@ -137,5 +137,15 @@ rownames(table_2) <- c('Regression_residual_volatility(%)','factor_correlation(%
 table_2
 ```
 
+# 4 Factors and Correlations
 
+### $\eta_t$のプロット　式に従って計算
+### それっぽいけどy軸が結構違う
+```{r}
+tmp_X<- t(-(t(pnorm_co_data)*sqrt(1-factor_correlation)-qnorm(un_defalut_rate))/sqrt(factor_correlation))
+
+plot_d <- t((t(tmp_X[2:92,])-sqrt(beta_)*t(tmp_X[1:91,])-1)/(1-beta_))
+
+plot_d %>% melt() %>% ggplot(aes(x=Var1,y=value)) + geom_line() + facet_wrap(~Var2,ncol=3,scales = 'free_y')
+```
 
