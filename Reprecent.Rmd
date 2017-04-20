@@ -17,6 +17,12 @@ theme_set(theme_bw())
 ```
 
 #3.Emrical Implementation
+
+## 大雑把な内容
+## 2章で変換されたデフォルト率が従うモデルを示した。
+## 自己相関ありとなしの場合で、6つのローンカテゴリーのデータをモデルに当てはめる。
+## カテゴリーはそれぞれ、米国の不動産、クレジットカード、それ以外のローン、リース、保険、農業
+
 [Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
 
 ## データの読み込みと必要なデータの抜き出し
@@ -99,6 +105,14 @@ table_1
 ```
 Stderrorはどうやって計算するのか見当がつかなかったので保留  
 
+
+### 後々使うので、$X_t$を計算しておく
+```{r}
+X_t_noauto<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
+```
+
+
+
 ### 自己相関を持つ場合を考えるので(25)の$\beta\neq0$で考える
 ### 一期前の値に対して線形回帰
 ```{r}
@@ -151,15 +165,15 @@ X_t = \frac{\Phi(q)^{-1}-\sqrt{1-\rho}\tilde{\theta_t}}{\sqrt{\rho}} \\
 \eta_t = \frac{X_t-\sqrt{\beta}X_{t-1}}{\sqrt{1-\beta}}
 $$
 ```{r}
-X_t<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
-plot_d <- t((t(X_t[2:92,])-sqrt(beta_)*t(X_t[1:91,]))/sqrt(1-beta_))
-
+X_t_auto<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
+plot_d <- t((t(X_t_auto[2:92,])-sqrt(beta_)*t(X_t_auto[1:91,]))/sqrt(1-beta_))
 
 data.frame(dt=date[-length(date)],plot_d) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
 ```
 
 ### Durbin-Watoson-Testを用いて、回帰の残差における自己相関を検定する。
 [Durbin-Watoson-Test](http://business.nikkeibp.co.jp/atclbdt/15/recipe/121100041/?ST=print)
+
 ### Jarque-Bera-Testを用いて、歪度と尖度が正規性の値から統計的に有意に異なるか検定する。モンテカルロ計算らしいがこっちは明らかに表と値が違う。
 [Jarque-Bera-Test](https://ja.wikipedia.org/wiki/%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E2%80%93%E3%83%99%E3%83%A9%E6%A4%9C%E5%AE%9A)
 ```{r}
@@ -167,10 +181,18 @@ DW_test <- sapply(Regression_AR,function(x) durbinWatsonTest(x$residuals))
 DW_test
 JB_test <- sapply(Regression_AR,function(x) ajb.norm.test(x$residuals,nrepl = 1000)['statistic'])
 t(JB_test)
+```
 
+## 4.2 Factor Correlations
+
+### 自己相関ありとなしのそれぞれの相関行列
+### なしはそれっぽいけど、ありが全体的におかしい
+```{r}
+no_auto_cor <- cor(X_t_noauto)
+auto_cor <- cor(X_t_auto)
+no_auto_cor
+auto_cor
 ```
 
 
-
-## 4.2 Factor Correlations
 
