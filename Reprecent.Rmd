@@ -1,7 +1,7 @@
 ---
-title: "Repuroduction"
+title: "Dynamic Default Rates Repuroduction"
 author: "Naoya Hieda"
-date: "2017年4月19日"
+date: "2017年4月21日"
 output: html_document
 ---
 
@@ -19,9 +19,9 @@ theme_set(theme_bw())
 #3.Emrical Implementation
 
 ## 大雑把な内容
-## 2章で変換されたデフォルト率が従うモデルを示した。
+## 2章で変換されたデフォルト率$\Phi(q)^{-1}$が従うモデルを示した。
 ## 自己相関ありとなしの場合で、6つのローンカテゴリーのデータをモデルに当てはめる。
-## カテゴリーはそれぞれ、米国の不動産、クレジットカード、それ以外のローン、リース、保険、農業
+## カテゴリーはそれぞれ、米国の不動産、クレジットカード、それ以外のローン、リース、工業、農業
 
 [Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
 
@@ -186,7 +186,7 @@ t(JB_test)
 ## 4.2 Factor Correlations
 
 ### 自己相関なしの要素の相関行列と自己相関ありのinovationの相関行列
-### なしはそれっぽいけど、ありが全体的におかしい
+### 要素の自己相関は文献に近いが、inovationが結構違う。
 ```{r}
 no_auto_cor <- cor(X_t_noauto)
 Inovations_cor <- cor(Inovations)
