@@ -166,9 +166,9 @@ X_t = \frac{\Phi(q)^{-1}-\sqrt{1-\rho}\tilde{\theta_t}}{\sqrt{\rho}} \\
 $$
 ```{r}
 X_t_auto<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
-plot_d <- t((t(X_t_auto[2:92,])-sqrt(beta_)*t(X_t_auto[1:91,]))/sqrt(1-beta_))
+Inovations <- t((t(X_t_auto[2:92,])-sqrt(beta_)*t(X_t_auto[1:91,]))/sqrt(1-beta_))
 
-data.frame(dt=date[-length(date)],plot_d) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
+data.frame(dt=date[-length(date)],Inovations) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
 ```
 
 ### Durbin-Watoson-Testを用いて、回帰の残差における自己相関を検定する。
@@ -185,13 +185,13 @@ t(JB_test)
 
 ## 4.2 Factor Correlations
 
-### 自己相関ありとなしのそれぞれの相関行列
+### 自己相関なしの要素の相関行列と自己相関ありのinovationの相関行列
 ### なしはそれっぽいけど、ありが全体的におかしい
 ```{r}
 no_auto_cor <- cor(X_t_noauto)
-auto_cor <- cor(X_t_auto)
+Inovations_cor <- cor(Inovations)
 no_auto_cor
-auto_cor
+Inovations_cor
 ```
 
 
