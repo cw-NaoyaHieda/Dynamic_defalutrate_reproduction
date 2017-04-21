@@ -1,0 +1,121 @@
+---
+title: "Loan Loss Model"
+author: "Naoya Hieda"
+date: "2017年4月21日"
+output: html_document
+---
+
+n人の債務者がいて、t-1時点でデフォルトしていない債務者がt時点でデフォルトする確率を
+それぞれの債務者の潜在変数$Z_{i,t}$と閾値$c$を用いて、$Z_{i,t}<c$とする。  
+$Z_{i,t}$はファクター構造を持っていて
+$$
+Z_{i,t} = \sqrt{\rho}X_t + \sqrt{1-\rho}\epsilon_t \;\;\; \epsilon_t\sim N(0,1). 
+$$
+に従っている。  
+さらに、この潜在変数Xが次のファクター構造を持っている。
+$$
+X_t = \sqrt{\beta}X_{t-1} + \sqrt{\lambda}\eta_t \;\;\; \eta_t\sim N(0,1).
+$$
+分散が1で一定であるために、$\lambda=(1-\beta)$として
+$$
+X_t = \sqrt{\beta}X_{t-1} + \sqrt{1-\beta}\eta_t.\\
+$$
+になる。閾値の値は、無条件のデフォルト確率qを用いて、以下のようになる。
+$$
+\Phi^{-1}(q)=c\\
+$$
+最初の、$Z_{i,t}<c$のデフォルトが起こる式を変形して、デフォルトが起こる確率が以下のように定義できる。
+$$
+\sqrt{\rho}X_t + \sqrt{1-\rho}\epsilon_{i,t} < c,\\
+\sqrt{\rho}\sqrt{1-\beta}\eta_t + \sqrt{1-\rho}\epsilon_{i,t} < c - \sqrt{\rho}\sqrt{\beta}X_{t-1}.
+$$
+左辺の確率変数の部分がそれぞれ、N(0,1)に従うので、左辺はN(0,$1-\rho\beta$)に従う。よって、無条件デフォルト確率qがわかっている状況での
+デフォルト確率が
+$$
+q_{i,t} = \Phi(\frac{c-\sqrt{\rho}\sqrt{\beta}}{\sqrt{1-\rho\beta}}).
+$$
+となる。  
+共通要因である$\eta_t$と$X_{t-1}$の条件付きでは、個々の債務者のデフォルトは独立である。  
+n人の債務者のうちk人がデフォルトを起こす確率をP(k,n)として定義する。  
+このうち、時点t-1で$X_{t-1}$は分かっているとして、$\eta_t$を積分して
+$$
+P(k,n)=
+ \left(
+    \begin{array}{c}
+      n \\
+      k
+    \end{array}
+  \right)
+\int_{0}^{1}\Phi(\frac{c-\sqrt{\rho}\sqrt{\beta}X_{t-1}-\sqrt{\rho}\sqrt{1-\beta}\eta_t}{\sqrt{1-\rho}})^k \\
+\times[1-\Phi(\frac{c-\sqrt{\rho}\sqrt{\beta}X_{t-1}-\sqrt{\rho}\sqrt{1-\beta}\eta_t}{\sqrt{1-\rho}})]^{n-k}d\Phi(\eta_k).
+$$
+となる。確率の部分を次のようにおいて  
+$$
+s(\eta)\equiv\Phi(\frac{c-\sqrt{\rho}\sqrt{\beta}X_{t-1}-\sqrt{\rho}\sqrt{1-\beta}\eta}{\sqrt{1-\rho}}).
+$$
+式変形すると、
+$$
+P(k,n) = - \left(\begin{array}{c}
+      n \\
+      k
+    \end{array}
+    \right)
+    \int^1_0 s^k(1-s)^{n-k}\\
+ \times d\Phi\left(\frac{-(\sqrt{1-\rho}\Phi^{-1}(s)-c+\sqrt{\rho}\sqrt{\beta}X_{t-1})}{\sqrt{\rho}\sqrt{1-\beta}}\right).    
+$$
+しかし正規分布の導関数は次の性質を満たすので
+$$
+-d\Phi(f(s)) = d\Phi(-f(s))
+$$
+P(k,n)は以下の式になる
+$$
+P(k,n)=\left(\begin{array}{c}
+      n \\
+      k
+    \end{array}
+    \right)
+    \int^1_0s^k(1-s)^{n-k}dW(s) 
+$$
+ここで、$W(s)=\Phi\left(\frac{\sqrt{1-\rho}\Phi^{-1}(s)-c+\sqrt{\rho}\sqrt{\beta}X_{t-1}}{\sqrt{\rho}\sqrt{1-\beta}}\right)$としている。  
+債務者を無限と仮定して,そのうち$\theta\%$以下がデフォルトする確率を考える  
+$$
+\lim_{n\rightarrow\infty}\sum_{i=0}^{[n\theta]}P(i,n)=\int_0^1\left(\lim_{n\rightarrow\infty}\sum_{i=0}^{[n\theta]}
+\left(\begin{array}{c}
+      n \\
+      k
+    \end{array}
+    \right)
+    s^i(1-s)^{n-i}
+\right)dW(s)\\
+=\int_0^1 1(s<\theta)dW(s) )\\
+=W(\theta)-W(0)=W(\theta)
+$$
+(読み返したらここが1になる理由わかってなかったです）
+結局、$X_{t-1}$の条件付きでの、n人以下のの債務者のデフォルト率が以下のようになる。
+$$
+W(\theta_t) \equiv \Phi\left( \frac{\sqrt{1-\rho}\Phi^{-1}(\theta_t)-\Phi^{-1}(q)+\sqrt{\rho}\sqrt{\beta}X_{t-1}}{\sqrt{\rho}\sqrt{1-\beta}}\right)
+$$
+
+この分布関数から、変換されたデフォルト率である$\Phi^{-1}(\theta_t)$が、  
+正規分布に従い、
+$$
+\tilde{\theta}\equiv\Phi^{-1}(\theta_t)\sim N\left(\frac{\Phi^{-1}(q)-\sqrt{\rho}\sqrt{\beta}X_{t-1}}{\sqrt{1-\rho}},\frac{\rho(1-\beta)}{1-\rho}\right)
+$$
+となる。(すみません、ここもわかってないです。)  
+この式は、拡張されて、
+$$
+\tilde{\theta_t}=\frac{\Phi^{-1}(q)-\sqrt{\rho}\sqrt{\beta}X_{t-1}}{\sqrt{1-\rho}}-\frac{\sqrt{\rho}\sqrt{1-\beta}}{\sqrt{1-\rho}}\eta_t
+$$
+となる。この$\eta_t$は$X_t = \sqrt{\beta}X_{t-1} + \sqrt{\lambda}\eta_t$の$\eta_t$。
+この式を$X_{t-1}$について解くと
+$$
+X_{t-1}=\frac{1}{\sqrt{\rho}\sqrt{\beta}}\bigl[\Phi^{-1}(q)-\sqrt{1-\rho}\tilde{\theta}_t-\sqrt{\rho}\sqrt{1-\beta}\eta_t\bigr]
+$$
+この方式を一期前の$X_t$の式に代入する。
+$$
+X_{t-1}=\sqrt{\beta}X_{t-2}+\sqrt{1-\beta}\eta_{t-1}
+$$
+結果、変換されたデフォルト率についての次の式が導かれる。
+$$
+\tilde{\theta}_t=\beta\tilde{\theta}_{t-1}+\frac{\sqrt{1-\beta}}{\sqrt{1-\rho}}\Phi^{-1}(q)-\frac{\sqrt{\rho}\sqrt{1-\beta}}{\sqrt{1-\rho}}\eta_t.
+$$
