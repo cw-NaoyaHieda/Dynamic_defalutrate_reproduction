@@ -148,7 +148,7 @@ for(i in c(1:6)){
         sqrt(beta_[i])*pnorm_co_data[1:127,i]-
         ((1-sqrt(beta_[i]))/sqrt(1-factor_correlation[i]))*qnorm(q))
       )))
-  optim_result <- optim(par = 0,method = 'Brent',f,lower = 0, upper =1-1e-10,hessian = TRUE)
+  optim_result <- optim(par = 0+1e-2,method = 'Brent',f,lower = 0+1e-2, upper =1-1e-2,hessian = TRUE)
   un_defalut_rate <- c(un_defalut_rate,optim_result$par)
   std_error_q <- c(std_error_q,sqrt(solve(optim_result$hessian)))
 }
