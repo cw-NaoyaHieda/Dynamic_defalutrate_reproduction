@@ -1,7 +1,7 @@
 ---
 title: "Dynamic Default Rates fit_feature"
 author: "Naoya Hieda"
-date: "2017年4月21日"
+date: "`r format(Sys.time(), '%Y年%m月%d日')`"
 output: html_document
 ---
 
@@ -31,7 +31,9 @@ repro_data <- charge_off_data[7:134,c(5,9,10,8,4,3)] %>% apply(2,as.numeric)
 colnames(repro_data) <- c('RE','CC','OC','L','CI','A')
 #各シリーズのLGD(Loss given defalut を除算) データが年率に変換されているのでそこも修正
 LGD <- c(0.35,0.65,0.65,0.45,0.45,0.45)
-co_data <- t(repro_data)/4/LGD
+#co_data <- t((1+repro_data)^(1/4)-1)/LGD
+co_data <- t(1-((100-repro_data)/100)^(1/4))/LGD*100
+
 co_data <- ts(t(co_data), frequency = 4, start = c(1985,1))
 #ちょっと強引に四半期時系列生成
 date <- time(co_data) %>% c() %>% as.numeric()
@@ -74,27 +76,34 @@ $$
 \tilde{\theta} = N(\frac{1}{\sqrt{1-\rho}}\Phi^{-1}(q),\frac{\rho}{1-\rho})
 $$
 
-## ニュートン法で最適化 分散から相関係数$\rho$を推定して、平均から無条件デフォルト確率qを推定する
+## 最適化 分散から相関係数$\rho$を推定して、平均から無条件デフォルト確率qを推定する
+## 相関係数は準ニュートン法 
+## 無条件デフォルト確率はBrent法
 ```{r}
 factor_correlation <- c()
+std_error_rho <- c()
 for(sd_2 in Regression_residual_volatility^2){
-  f <- function (rho) sd_2 - rho/(1-rho)
-  factor_correlation <- c(factor_correlation,uniroot(f,c(0,1-1e-10))$root)
+  f <- function (rho) sqrt((sd_2 - rho/(1-rho))^2)
+  opt_result <- optim(par=0,fn=f,method = 'BFGS',lower=0,upper=1-1e-10,hessian = TRUE)
+  factor_correlation <- c(factor_correlation,opt_result$par)
+  std_error_rho <- c(std_error_rho,sqrt(solve(opt_result$hessian)))
 }
 un_defalut_rate <- c()
+std_error_q <- c()
 for(i in c(1:6)){
-  f <- function (q) qnorm(q)/sqrt(1 - factor_correlation[i]) - colMeans(pnorm_co_data)[i]
-  un_defalut_rate <- c(un_defalut_rate,uniroot(f,c(0,1-1e-10))$root)
+  f <- function (q) sqrt((qnorm(q)/sqrt(1 - factor_correlation[i]) - colMeans(pnorm_co_data)[i])^2)
+  opt_result <- optim(par=0,fn=f,method = 'Brent',lower=0,upper=1-1e-10,hessian = TRUE)
+  un_defalut_rate <- c(un_defalut_rate,opt_result$par)
+  std_error_q <- c(std_error_q,sqrt(solve(opt_result$hessian)))
 }
 ```
 ## 論文と同じ表形式で表示
 ```{r}
-table_1 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,0,un_defalut_rate*100,0))
+table_1 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,std_error_rho*100,un_defalut_rate*100,std_error_q*100))
 colnames(table_1) <-  c('RE','CC','OC','L','CI','A')
 rownames(table_1) <- c('Regression_residual_volatility(%)','factor_correlation(%)','std_error_rho(%)','un_defalut_rate(%)','std_error_q(%)')
 table_1
 ```
-Stderrorはどうやって計算するのか見当がつかなかったので保留  
 
 
 ### 後々使うので、$X_t$を計算しておく
@@ -123,11 +132,15 @@ Regression_residual_volatility <- sapply(Regression_AR,function(x)sqrt(var(x$res
 beta_ <- sapply(Regression_AR,function(x) x$coefficients['x','Estimate']^2)
 beta_error <- sapply(Regression_AR,function(x) x$coefficients['x','Std. Error'])
 factor_correlation <- c()
+std_error_rho <- c()
 for(i in 1:6){
   f <- function (rho) sqrt((Regression_residual_volatility[i]^2 - rho*(1-beta_[i])/(1-rho))^2)
-  factor_correlation <- c(factor_correlation,optimize(f,c(0,1-1e-10))$minimum)
+  optim_result <- optim(par = 0,method = 'BFGS',f,lower = 0, upper =1-1e-10,hessian = TRUE)
+  factor_correlation <- c(factor_correlation,optim_result$par)
+  std_error_rho <- c(std_error_rho,sqrt(solve(optim_result$hessian)))
 }
 un_defalut_rate <- c()
+std_error_q <- c()
 for(i in c(1:6)){
   f <- function(q)
     -sum(log(dnorm((
@@ -135,10 +148,12 @@ for(i in c(1:6)){
         sqrt(beta_[i])*pnorm_co_data[1:127,i]-
         ((1-sqrt(beta_[i]))/sqrt(1-factor_correlation[i]))*qnorm(q))
       )))
-  un_defalut_rate <- c(un_defalut_rate,optimize(f, c(0+1e-10,1-1e-10), tol = 0.0001)$minimum)
+  optim_result <- optim(par = 0,method = 'Brent',f,lower = 0, upper =1-1e-10,hessian = TRUE)
+  un_defalut_rate <- c(un_defalut_rate,optim_result$par)
+  std_error_q <- c(std_error_q,sqrt(solve(optim_result$hessian)))
 }
 
-table_2 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,0,un_defalut_rate*100,0,beta_*100,beta_error*100))
+table_2 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,std_error_rho*100,un_defalut_rate*100,std_error_q*100,beta_*100,beta_error*100))
 colnames(table_2) <-  c('RE','CC','OC','L','CI','A')
 rownames(table_2) <- c('Regression_residual_volatility(%)','factor_correlation(%)','std_error_rho(%)','un_defalut_rate(%)','std_error_q(%)','beta(%)','std_error_beta(%)')
 table_2
