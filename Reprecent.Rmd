@@ -210,4 +210,10 @@ Inovations_cor
 ```
 
 
+```{r}
+PCA <- prcomp(no_auto_cor, scale=T)
+matrix(c(t(PCA$sdev),t(PCA$x)),nrow = 6)
+#PCA <- prcomp(Inovations_cor, scale=T)
+#t(PCA$x)
+```
 
