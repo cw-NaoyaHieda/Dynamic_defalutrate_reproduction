@@ -25,7 +25,8 @@ theme_set(theme_bw())
 
 [Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
 
-![エビフライトライアングル](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/fig1.JPG)
+![エビフライトライアングル](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch1.PNG)
+![エビフライトライアングル](C:/Users/naoya/Desktop/Graduage_study/Dynamic_defaultrate/jp_trance/figure/ch1.PNG)
 
 ## データの読み込みと必要なデータの抜き出し
 ## 年率換算されているので四半期毎の値に戻して、LGDの値で除算
