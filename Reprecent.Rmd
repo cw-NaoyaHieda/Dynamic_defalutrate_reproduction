@@ -289,7 +289,17 @@ t(PCA$x)
 
 ### 論文のAppendixを参考に、無相関モデルでのInovation系列の分散共分散行列を計算して、その固有値に対して仮説検定を行う。
 ### 検定が有意であれば、Inovationの中にcommonfactorがあることになる
+
 ```{r}
-eigen(cor(X_t_noauto))$values
+eigenvalues <- eigen(cor(X_t_noauto))$values
+cumsum(eigenvalues)/(sum(eigenvalues))^2
+
+eigenvalues <- eigen(Inovations_cor)$values
+cumsum(eigenvalues)/(sum(eigenvalues))^2
+
+
 ```
+
+
+
 
