@@ -209,11 +209,16 @@ no_auto_cor
 Inovations_cor
 ```
 
+### 主成分分析
+```{r}
+PCA_no <- prcomp(no_auto_cor, scale=T)
+matrix(c(t(PCA_no$sdev),t(PCA_no$x)),nrow = 6)
+PCA <- prcomp(Inovations_cor, scale=T)
+t(PCA$x)
+```
+
 
 ```{r}
-PCA <- prcomp(no_auto_cor, scale=T)
-matrix(c(t(PCA$sdev),t(PCA$x)),nrow = 6)
-#PCA <- prcomp(Inovations_cor, scale=T)
-#t(PCA$x)
+diag(PCA_no)
 ```
 
