@@ -25,9 +25,6 @@ theme_set(theme_bw())
 
 [Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
 
-![エビフライトライアングル](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch1.PNG)
-![エビフライトライアングル](C:/Users/naoya/Desktop/Graduage_study/Dynamic_defaultrate/jp_trance/figure/ch1.PNG)
-
 ## データの読み込みと必要なデータの抜き出し
 ## 年率換算されているので四半期毎の値に戻して、LGDの値で除算
 ## 各期の純粋なデフォルト率のデータになっているはず
@@ -49,9 +46,19 @@ date <- time(co_data) %>% c() %>% as.numeric()
 ggplot(co_data %>% melt,aes(x=date[Var1],y=value))+geom_line()+
   facet_wrap(~Var2,scales="free_y",ncol=3)+
   xlab('Year')+ylab('Defalut Rate(%)')
+```
+
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch1.PNG?raw=true)
+
+```{r}
 colMeans(co_data)
 sqrt(colMeans(co_data^2)-colMeans(co_data)^2)
 ```
+
+|| RE | CC | OC | L | CI | A |
+|---|---|---|---|---|---|---|
+|Loss rete series mean(%)| 0.25 | 1.63 | 0.39 | 0.27 | 0.47 | 0.36 |
+|Loss rate std dev(%)| 0.23 | 0.39 | 0.12 | 0.16 | 0.29 | 0.56 |
 
 ### 見た目も平均も、論文のものとはちょっとだけずれてしまう
 ### 元データが、論文のころは四半期でそのまま表示されていたが、現在は各期の値が年率換算されているため。
@@ -117,6 +124,13 @@ rownames(table_1) <- c('Regression_residual_volatility(%)','factor_correlation(%
 table_1
 ```
 
+| Parameter Estimates with No Autocorrelation(論文内) |       |      |       |       |       |       |
+|---------------------------------------------|-------|------|-------|-------|-------|-------|
+| Regression residual   volatility (%)        | 30.12 | 9.62 | 10.17 | 21.74 | 24.39 | 40.37 |
+| Factor correlation ρ (%)                    | 8.32  | 0.92 | 1.02  | 4.51  | 5.62  | 14.01 |
+| Std error ρ (%)                             | 1.13  | 0.13 | 0.15  | 0.64  | 0.79  | 1.79  |
+| Unconditional default probability q   (%)   | 0.25  | 1.63 | 0.39  | 0.28  | 0.48  | 0.35  |
+| Std error q (%)                             | 0.07  | 0.09 | 0.03  | 0.05  | 0.09  | 0.12  |
 
 ### $X_t$とInovationsを計算しておく　これが何なのかは、後で詳しく書く
 ```{r}
@@ -171,6 +185,16 @@ rownames(table_2) <- c('Regression_residual_volatility(%)','factor_correlation(%
 table_2
 ```
 
+| Parameter Estimates with Autocorrelation   |      |       |       |       |       |       |
+|--------------------------------------------|------|-------|-------|-------|-------|-------|
+| Regression residual   volatility (%)       | 8.27 | 4.25  | 4.61  | 12.19 | 6.95  | 25.77 |
+| Factor correlation ρ (%)                   | 8.67 | 0.64  | 1.05  | 4.66  | 5.3   | 13.49 |
+| Std error ρ (%)                            | 6.22 | 0.2   | 0.48  | 1.59  | 3.41  | 3.3   |
+| Unconditional default probability q   (%)  | 0.27 | 1.69  | 0.44  | 0.27  | 0.41  | 0.3   |
+| Std error q (%)                            | 0.21 | 0.13  | 0.07  | 0.06  | 0.2   | 0.1   |
+| AR(1) parameter β (%)                      | 92.8 | 71.84 | 79.97 | 69.62 | 91.37 | 57.4  |
+| Std error β (%)                            | 5.55 | 7.85  | 8.67  | 9.86  | 5.71  | 10.22 |
+
 # 4 Factors and Correlations
 
 ## 4.1 Specification Tests
@@ -189,6 +213,9 @@ Inovations <- t((t(X_t_auto[2:92,])-sqrt(beta_)*t(X_t_auto[1:91,]))/sqrt(1-beta_
 data.frame(dt=date[-length(date)],Inovations) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
 ```
 
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch2.PNG?raw=true)
+
+
 ### Durbin-Watoson-Testを用いて、回帰の残差における自己相関を検定する。
 [Durbin-Watoson-Test](http://business.nikkeibp.co.jp/atclbdt/15/recipe/121100041/?ST=print)
 
@@ -201,6 +228,11 @@ JB_test <- sapply(Regression_AR,function(x) ajb.norm.test(x$residuals,nrepl = 10
 t(JB_test)
 ```
 
+|               | RE   |  CC  |  OC  |  L   |  CI  |  A   |
+|---------------|------|------|------|------|------|------|
+| Durbin-Watson | 2.29 | 2.34 | 2.57 | 2.23 | 1.89 | 2.54 |
+| Jarques-Bera  | 5.23 | 4.94 | 4.66 | 5    | 4.91 | 5.13 |
+
 ## 4.2 Factor Correlations
 
 ### 自己相関なしの要素の相関行列と自己相関ありのinovationの相関行列
@@ -212,6 +244,23 @@ no_auto_cor
 Inovations_cor
 ```
 
+|                                              |  RE   |  CC   |  OC   |  L    |  CI   |  A    |
+|----------------------------------------------|-------|-------|-------|-------|-------|-------|
+| Correlation   Matrix with No Autocorrelation |       |       |       |       |       |       |
+| RE                                           | 1     | -0.4  | -0.33 | 0.37  | 0.61  | 0.37  |
+| CC                                           | -0.4  | 1     | 0.66  | 0.2   | 0.06  | -0.33 |
+| OC                                           | -0.33 | 0.66  | 1     | 0.38  | 0.22  | -0.23 |
+| L                                            | 0.37  | 0.2   | 0.38  | 1     | 0.79  | 0.41  |
+| CI                                           | 0.61  | 0.06  | 0.22  | 0.79  | 1     | 0.55  |
+| A                                            | 0.37  | -0.33 | -0.23 | 0.41  | 0.55  | 1     |
+| Correlation   Matrix with Autocorrelation    |       |       |       |       |       |       |
+| RE                                           | 1     | -0.18 | 0.11  | 0.16  | 0.28  | 0.4   |
+| CC                                           | -0.18 | 1     | 0.26  | 0.1   | -0.1  | -0.57 |
+| OC                                           | 0.11  | 0.26  | 1     | 0.29  | 0.06  | 0     |
+| L                                            | 0.16  | 0.1   | 0.29  | 1     | -0.07 | 0.04  |
+| CI                                           | 0.28  | -0.1  | 0.06  | -0.07 | 1     | 0.11  |
+| A                                            | 0.4   | -0.57 | 0     | 0.04  | 0.11  | 1     |
+
 ### 主成分分析
 ### 
 ```{r}
@@ -220,6 +269,23 @@ matrix(c(t(PCA_no$sdev),t(PCA_no$x)),nrow = 6)
 PCA <- prcomp(Inovations_cor, scale=T)
 t(PCA$x)
 ```
+
+|                                                         |  Eigenvalue  |  RE   |  CC   |  OC   |  L    |  CI   |  A    |
+|---------------------------------------------------------|--------------|-------|-------|-------|-------|-------|-------|
+| Eigenvalue   and Factor Weights with No Autocorrelation |              |       |       |       |       |       |       |
+| Common Factor 1                                         | 0.11         | 1.42  | 0.43  | 0.77  | 0.57  | -2.25 | 0.9   |
+| Common Factor 2                                         | 0.23         | 0.54  | 0.03  | 1.01  | -1.59 | 0.51  | 0.55  |
+| Common Factor 3                                         | 0.34         | -0.25 | -1.33 | 0.94  | 0.34  | -0.13 | -0.3  |
+| Common Factor 4                                         | 0.64         | 0.8   | 0.04  | -0.01 | -0.02 | 0.13  | -0.95 |
+| Common Factor 5                                         | 2.08         | -0.16 | 0.41  | 0.44  | 0.24  | 0.15  | -0.11 |
+| Common Factor 6                                         | 2.6          | 0.29  | -0.09 | -0.02 | 0.3   | 0.35  | 0.28  |
+| Eigenvalue   and Factor Weights with Autocorrelation    |              |       |       |       |       |       |       |
+| Common Factor 1                                         | 0.41         | 0.61  | -0.76 | 0.33  | -0.14 | -0.26 | -1.15 |
+| Common Factor 2                                         | 0.66         | 0.74  | 0.46  | -0.02 | -0.64 | -0.53 | 0.28  |
+| Common Factor 3                                         | 0.75         | 0.49  | 0.22  | -0.78 | 0.64  | 0.03  | -0.2  |
+| Common Factor 4                                         | 1.13         | -0.15 | -0.2  | 0.12  | 0.42  | -0.77 | 0.21  |
+| Common Factor 5                                         | 1.61         | 0.34  | 0.14  | 0.53  | 0.37  | 0.21  | 0.15  |
+| Common Factor 6                                         | 2.3          | 0.21  | -0.47 | -0.13 | -0.04 | 0.13  | 0.36  |
 
 ### 論文のAppendixを参考に、無相関モデルでのInovation系列の分散共分散行列を計算して、その固有値に対して仮説検定を行う。
 ### 検定が有意であれば、Inovationの中にcommonfactorがあることになる
