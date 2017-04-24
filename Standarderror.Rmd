@@ -1,0 +1,19 @@
+---
+title: "標準誤差 Standard error"
+author: "Naoya Hieda"
+date: "2017年4月24日"
+output: html_document
+---
+
+母集団からある数の標本を選ぶとき、選ぶ組み合わせによって統計量がどの程度ばらつくかを、すべての組み合わせについての標準偏差で表したものをいう。
+
+数式としては、以下のようになる
+$$
+SE = \sqrt{\frac{N-n}{N-1}}\frac{\sigma}{\sqrt{n}}
+$$
+標準偏差が標本データから計算したものの場合は
+$$
+SE = \sqrt{\frac{N-n}{N}}\frac{s}{\sqrt{n}}
+$$
+
+ヘッセ行列 = 二回微分と偏微分で作られる行列
