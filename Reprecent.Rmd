@@ -25,6 +25,8 @@ theme_set(theme_bw())
 
 [Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
 
+![エビフライトライアングル](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/fig1.JPG)
+
 ## データの読み込みと必要なデータの抜き出し
 ## 年率換算されているので四半期毎の値に戻して、LGDの値で除算
 ## 各期の純粋なデフォルト率のデータになっているはず
@@ -115,9 +117,9 @@ table_1
 ```
 
 
-### 後々使うので、$X_t$を計算しておく
+### $X_t$とInovationsを計算しておく　これが何なのかは、後で詳しく書く
 ```{r}
-X_t_noauto<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
+X_t_noauto <- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
 ```
 
 
@@ -210,6 +212,7 @@ Inovations_cor
 ```
 
 ### 主成分分析
+### 
 ```{r}
 PCA_no <- prcomp(no_auto_cor, scale=T)
 matrix(c(t(PCA_no$sdev),t(PCA_no$x)),nrow = 6)
@@ -217,8 +220,9 @@ PCA <- prcomp(Inovations_cor, scale=T)
 t(PCA$x)
 ```
 
-
+### 論文のAppendixを参考に、無相関モデルでのInovation系列の分散共分散行列を計算して、その固有値に対して仮説検定を行う。
+### 検定が有意であれば、Inovationの中にcommonfactorがあることになる
 ```{r}
-diag(PCA_no)
+eigen(cor(X_t_noauto))$values
 ```
 
