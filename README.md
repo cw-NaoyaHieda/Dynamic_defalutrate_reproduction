@@ -1,16 +1,16 @@
 # Dynamic_defalutrate_reproduction
 Dynamic_defaultrateの論文内で行われている計算と図の再現
 
-DYNAMIC DEFAULT RATES
-Robert Lamb
-Imperial College
-London
-William Perraudin
-Imperial College
-London
+DYNAMIC DEFAULT RATES  
+Robert Lamb  
+Imperial College  
+London  
+William Perraudin  
+Imperial College  
+London  
 
-First version: August 2005
-This version: May 2008¤
+First version: August 2005  
+This version: May 2008
 
 を先行研究として、Rにて再現している。
 
