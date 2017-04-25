@@ -2,12 +2,13 @@
 title: "Dynamic Default Rates Repuroduction"
 author: "Naoya Hieda"
 date: "`r format(Sys.time(), '%Y年%m月%d日')`"
-output: html_document
+output:
+  html_document:
+    css: styles.css
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
-
 library(dplyr)
 library(reshape2)
 library(ggplot2)
@@ -17,6 +18,8 @@ theme_set(theme_bw())
 ```
 
 #3.Emrical Implementation
+
+ふぁ
 
 ## 大雑把な内容
 ## 2章で変換されたデフォルト率$\Phi(q)^{-1}$が従うモデルを示した。
@@ -296,7 +299,15 @@ cumsum(eigenvalues)/(sum(eigenvalues))^2
 
 eigenvalues <- eigen(Inovations_cor)$values
 cumsum(eigenvalues)/(sum(eigenvalues))^2
+```
 
+## 考えた分布がどれだけ
+### 観測されている因子の合計と観測されていない因子をもちいて、潜在変数$Z_{it}$を示す
+$$
+Z_{i,t} = \sqrt{\rho}\left(\sqrt{1-\lambda^2}X_t + \lambda \sum_{j=1}^{J} a^{\star}_jY_{j,t} \right) + \sqrt{1-\rho}\epsilon_{1,t}.
+$$
+
+```{r}
 
 ```
 
