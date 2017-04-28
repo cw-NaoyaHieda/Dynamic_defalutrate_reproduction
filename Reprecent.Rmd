@@ -2,12 +2,13 @@
 title: "Dynamic Default Rates fit_feature"
 author: "Naoya Hieda"
 date: "`r format(Sys.time(), '%Y年%m月%d日')`"
-output: html_document
+output:
+  html_document:
+    css: styles.css
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
-
 library(dplyr)
 library(reshape2)
 library(ggplot2)
@@ -22,6 +23,17 @@ theme_set(theme_bw())
 
 [Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
 
+
+## 大雑把な内容
+2章にて変換されたデフォルト率$\Phi(q)^{-1}$が従うモデルを示した。  
+自己相関ありとなしの場合で、6つのローンカテゴリーのデータをモデルに当てはめる。  
+カテゴリーはそれぞれ、米国の不動産、クレジットカード、それ以外のローン、リース、工業、農業
+
+[Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
+
+データの読み込みと必要なデータの抜き出し  
+年率換算されているので四半期毎の値に戻して、LGDの値で除算  
+各期の純粋なデフォルト率のデータになっているはず
 ```{r}
 charge_off_data <- read.table('data/N_FRB_CHGDEL.csv',encoding='utf-8',sep=',')
 
@@ -40,20 +52,30 @@ date <- time(co_data) %>% c() %>% as.numeric()
 ggplot(co_data %>% melt,aes(x=date[Var1],y=value))+geom_line()+
   facet_wrap(~Var2,scales="free_y",ncol=3)+
   xlab('Year')+ylab('Defalut Rate(%)')
+```
+
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch1.PNG?raw=true)
+
+```{r}
 colMeans(co_data)
 sqrt(colMeans(co_data^2)-colMeans(co_data)^2)
 ```
 
-### なぜか2005年4月Aのデフォルト率がマイナス扱いなので、1e-10にしておく
-### この後のAに関する計算結果はずっとおかしいけどしょうがない
+
+CrecitCardのデフォルト率の平均が最も高いが、ボラティリティは他のカテゴリーとあまり変わらない  
+CrecitCardがほかのカテゴリーよりもリスクが高いことが伺える。  
+ただし、VaRやデフォルト率や資産相関など複雑な計算式に依存している資本は、Volatilityから単純に計算できるものではない。
+
+なぜか2005年4月Aのデフォルト率がマイナス扱いなので、1e-10にしておく  
+この後のAに関する計算結果はずっとおかしいけどしょうがない
 ```{r}
 co_data[co_data<0] <- 1e-10
 ```
-### 元のデータを小数点表示に直してから 単純に標準正規分布cdfの逆数$\Phi^{-1}$で変換したもの
+元のデータを小数点表示に直してから 単純に標準正規分布cdfの逆数$\Phi^{-1}$で変換したもの
 ```{r}
 pnorm_co_data <- qnorm(co_data/100)
 ```
-### regression on constant が lm(r ~ 0)で実装できるようなので
+regression on constant が lm(r ~ 0)で実装できるようなので
 ```{r}
 Regression_on_constant <- {}
 for(i in 1:6){
@@ -62,11 +84,13 @@ fit <- lm(y ~ 0,data=tmp)
 Regression_on_constant <- c(Regression_on_constant,list(summary(fit)))
 }
 ```
-### 回帰誤差ボラティリティ(残差の標準偏差)
+回帰誤差ボラティリティ(残差の標準偏差)
 ```{r}
 Regression_residual_volatility <- sapply(Regression_on_constant,function(x)sqrt(var(x$residuals)))
 ```
-## beta=0で(24)(25)が成り立っていると考えればいい?
+
+
+beta=0で(24)(25)が成り立っていると考えればいい?
 $$
 \tilde{\theta}_t=\sqrt{\beta}\tilde{\theta}_{t-1}+\frac{(1-\sqrt{\beta})}{\sqrt{1-\rho}}\Phi^{-1}(q)-\frac{\sqrt{\rho}\sqrt{1-\beta}}{\sqrt{1-\rho}}\eta_t\\
 \tilde{\theta_t} = \Phi^{-1}(\theta_t)\sim N(\sqrt{\beta}\tilde{\theta}_{t-1}+\frac{(1-\sqrt{\beta})}{\sqrt{1-\rho}}\Phi^{-1}(q),\frac{\rho(1-\beta)}{1-\rho})\\
@@ -76,9 +100,18 @@ $$
 \tilde{\theta} = N(\frac{1}{\sqrt{1-\rho}}\Phi^{-1}(q),\frac{\rho}{1-\rho})
 $$
 
-## 最適化 分散から相関係数$\rho$を推定して、平均から無条件デフォルト確率qを推定する
-## 相関係数は準ニュートン法 
-## 無条件デフォルト確率はBrent法
+最適化 分散から相関係数$\rho$を推定して、平均から無条件デフォルト確率qを推定する  
+それぞれの目的関数は
+相関係数
+$$
+f(\rho)=\sqrt{(\sigma^2-\frac{\rho}{1-\rho})^2}
+$$
+無条件デフォルト確率
+$$
+f(q)=\sqrt{(\frac{\Phi(q)^{-1}}{\sqrt{1-\rho}}-\mu)^2}
+$$
+相関係数は準ニュートン法  
+無条件デフォルト確率はBrent法
 ```{r}
 factor_correlation <- c()
 std_error_rho <- c()
@@ -97,7 +130,7 @@ for(i in c(1:6)){
   std_error_q <- c(std_error_q,sqrt(solve(opt_result$hessian)))
 }
 ```
-## 論文と同じ表形式で表示
+論文と同じ表形式で表示
 ```{r}
 table_1 <- t(data.frame(Regression_residual_volatility*100,factor_correlation*100,std_error_rho*100,un_defalut_rate*100,std_error_q*100))
 colnames(table_1) <-  c('RE','CC','OC','L','CI','A')
@@ -105,16 +138,25 @@ rownames(table_1) <- c('Regression_residual_volatility(%)','factor_correlation(%
 table_1
 ```
 
+| Parameter Estimates with No Autocorrelation(論文内) |       |      |       |       |       |       |
+|---------------------------------------------|-------|------|-------|-------|-------|-------|
+| Regression residual   volatility (%)        | 30.12 | 9.62 | 10.17 | 21.74 | 24.39 | 40.37 |
+| Factor correlation ρ (%)                    | 8.32  | 0.92 | 1.02  | 4.51  | 5.62  | 14.01 |
+| Std error ρ (%)                             | 1.13  | 0.13 | 0.15  | 0.64  | 0.79  | 1.79  |
+| Unconditional default probability q   (%)   | 0.25  | 1.63 | 0.39  | 0.28  | 0.48  | 0.35  |
+| Std error q (%)                             | 0.07  | 0.09 | 0.03  | 0.05  | 0.09  | 0.12  |
 
-### 後々使うので、$X_t$を計算しておく
+cdfで変換した後のデフォルト率について
+Regression residual volatility(平均との差分の分散)でみると、CreditCardが一番低くなった。  
+また、カテゴリー内の相関係数にあたる$\rho$もCreditCardが一番低くなった。  
+
+$X_t$とInovationsを計算しておく　これが何なのかは、後で詳しく書く
 ```{r}
-X_t_noauto<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
+X_t_noauto <- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
 ```
 
-
-
-### 自己相関を持つ場合を考えるので(25)の$\beta\neq0$で考える
-### 一期前の値に対して線形回帰
+自己相関を持つ場合を考えるので(25)の$\beta\neq0$で考える  
+一期前の値に対して線形回帰
 ```{r}
 Regression_AR <- {}
 for(i in 1:6){
@@ -123,10 +165,17 @@ fit <- lm(y ~ x ,data=tmp)
 Regression_AR <- c(Regression_AR,list(summary(fit)))
 }
 ```
-### 回帰誤差ボラティリティ(残差の標準偏差)は先程と同じように取り出せる
-### $\beta$は回帰の係数
-### $\rho$は分散からの最適化で先ほどと同じ
-### qは式が複雑になるが先ほどと同じ
+回帰誤差ボラティリティ(残差の標準偏差)は先程と同じように取り出せる  
+$\beta$は回帰の係数  
+それぞれの目的関数は
+相関係数
+$$
+f(\rho)=\sqrt{(\sigma_{AR(1)}^2-\frac{\rho(1-\beta)}{1-\rho})^2}
+$$
+無条件デフォルト確率
+$$
+f(q)=\sum_{t=1}^{T-1}\log (\phi({x_{t+1}-\beta x_t-\frac{1-\beta}{\sqrt{1-\rho}}\Phi(q)^{-1}}))
+$$
 ```{r}
 Regression_residual_volatility <- sapply(Regression_AR,function(x)sqrt(var(x$residuals)))
 beta_ <- sapply(Regression_AR,function(x) x$coefficients['x','Estimate']^2)
@@ -159,17 +208,37 @@ rownames(table_2) <- c('Regression_residual_volatility(%)','factor_correlation(%
 table_2
 ```
 
+| Parameter Estimates with Autocorrelation   |      |       |       |       |       |       |
+|--------------------------------------------|------|-------|-------|-------|-------|-------|
+| Regression residual volatility (%)         | 8.27 | 4.25  | 4.61  | 12.19 | 6.95  | 25.77 |
+| Factor correlation ρ (%)                   | 8.67 | 0.64  | 1.05  | 4.66  | 5.3   | 13.49 |
+| Std error ρ (%)                            | 6.22 | 0.2   | 0.48  | 1.59  | 3.41  | 3.3   |
+| Unconditional default probability q   (%)  | 0.27 | 1.69  | 0.44  | 0.27  | 0.41  | 0.3   |
+| Std error q (%)                            | 0.21 | 0.13  | 0.07  | 0.06  | 0.2   | 0.1   |
+| AR(1) parameter β (%)                      | 92.8 | 71.84 | 79.97 | 69.62 | 91.37 | 57.4  |
+| Std error β (%)                            | 5.55 | 7.85  | 8.67  | 9.86  | 5.71  | 10.22 |
+
+
+自己相関がありのモデルを考えると、モデルに対するRegression residual volatility(モデルで計算される値と実測値の差分)が
+実質減らすことになるので、全体的に値が小さくなる。  
+にも拘わらず、相関係数の$rho$は、損失率の変動性を反映しているので先ほどとあまり変わらない  
+
+
 # 4 Factors and Correlations
 
 ## 4.1 Specification Tests
-### $\eta_t$のプロット　式に従って計算
+$\eta_t$のプロット　式に従って計算
 
-式(33)を変換したものと、と式(34)から$\eta_t$を計算
+式(33)を変換したものと、と式(34)からショックの値である$\eta_t$を計算
 $$
 \tilde{\theta_t} = \frac{\Phi(q)^{-1} - \sqrt{\rho}X_t}{\sqrt{1-\rho}} から\\
 X_t = \frac{\Phi(q)^{-1}-\sqrt{1-\rho}\tilde{\theta_t}}{\sqrt{\rho}} \\
 \eta_t = \frac{X_t-\sqrt{\beta}X_{t-1}}{\sqrt{1-\beta}}
 $$
+
+自己相関モデルが正しければ、一時遅れはデータから全ての時間依存性が除去されていて、ショックはホワイトノイズに従うべき。  
+LeaseとAgriculturalとにショックのクラスタリングがある  
+クレジットカードは高次の自己相関がある可能性がある
 ```{r}
 X_t_auto<- t((qnorm(un_defalut_rate)-sqrt(1-factor_correlation)*t(pnorm_co_data))/sqrt(factor_correlation))
 Inovations <- t((t(X_t_auto[2:128,])-sqrt(beta_)*t(X_t_auto[1:127,]))/sqrt(1-beta_))
@@ -177,11 +246,16 @@ Inovations <- t((t(X_t_auto[2:128,])-sqrt(beta_)*t(X_t_auto[1:127,]))/sqrt(1-bet
 data.frame(dt=date[-length(date)],Inovations) %>% melt(id='dt') %>% ggplot(aes(x=dt,y=value)) + geom_line() + facet_wrap(~variable,ncol=3,scales = 'free_y') + xlab('Year') + ylab('Factor Shock Value')
 ```
 
-### Durbin-Watoson-Testを用いて、回帰の残差における自己相関を検定する。
-[Durbin-Watoson-Test](http://business.nikkeibp.co.jp/atclbdt/15/recipe/121100041/?ST=print)
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch2.PNG?raw=true)
 
-### Jarque-Bera-Testを用いて、歪度と尖度が正規性の値から統計的に有意に異なるか検定する。モンテカルロ計算らしいがこっちは明らかに表と値が違う。
+
+Durbin-Watoson-Testを用いて、回帰の残差から自己相関を検定する。
+[Durbin-Watoson-Test](http://business.nikkeibp.co.jp/atclbdt/15/recipe/121100041/?ST=print)
+いずれの場合も95%の信頼区間に残差が存在することから独立であると言える。
+
+Jarque-Bera-Testを用いて、歪度と尖度が正規性の値から統計的に有意に異なるか検定する。モンテカルロ計算らしいがこっちは明らかに表と値が違う。
 [Jarque-Bera-Test](https://ja.wikipedia.org/wiki/%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E2%80%93%E3%83%99%E3%83%A9%E6%A4%9C%E5%AE%9A)
+サンプルの歪度と尖度が正規性の値から有為に異なるかで正規分布かを検定する。信頼水準は5.99
 ```{r}
 DW_test <- sapply(Regression_AR,function(x) durbinWatsonTest(x$residuals))
 DW_test
@@ -189,16 +263,109 @@ JB_test <- sapply(Regression_AR,function(x) ajb.norm.test(x$residuals,nrepl = 10
 t(JB_test)
 ```
 
+|               | RE   |  CC  |  OC  |  L   |  CI  |  A   |
+|---------------|------|------|------|------|------|------|
+| Durbin-Watson | 2.29 | 2.34 | 2.57 | 2.23 | 1.89 | 2.54 |
+| Jarques-Bera  | 5.23 | 4.94 | 4.66 | 5    | 4.91 | 5.13 |
+
 ## 4.2 Factor Correlations
 
-### 自己相関なしの要素の相関行列と自己相関ありのinovationの相関行列
-### 要素の自己相関は文献に近いが、inovationが結構違う。
+### 異なるカテゴリーのローンロスがどのように相関しているかを調べることが目的
+
+自己相関なしの要素の相関行列と自己相関ありのinovationの相関行列  
+要素の自己相関は文献に近いが、inovationが結構違う。
 ```{r}
 no_auto_cor <- cor(X_t_noauto)
 Inovations_cor <- cor(Inovations)
 no_auto_cor
 Inovations_cor
 ```
+
+CCがOCと最も相関が高いのはそれらしい。  
+REが最もほかの系列と相関が比較的高い  
+企業ローンにあたるL,CI,Aは高い相関を示している。  
+
+自己相関ありのモデルのほうがAとRE、CCのパターンを除いて相関が高い。  
+自己相関なしの場合のショックは、真のショックの加重和と考えられるためである。  
+
+|                                              |  RE   |  CC   |  OC   |  L    |  CI   |  A    |
+|----------------------------------------------|-------|-------|-------|-------|-------|-------|
+| Correlation   Matrix with No Autocorrelation |       |       |       |       |       |       |
+| RE                                           | 1     | -0.4  | -0.33 | 0.37  | 0.61  | 0.37  |
+| CC                                           | -0.4  | 1     | 0.66  | 0.2   | 0.06  | -0.33 |
+| OC                                           | -0.33 | 0.66  | 1     | 0.38  | 0.22  | -0.23 |
+| L                                            | 0.37  | 0.2   | 0.38  | 1     | 0.79  | 0.41  |
+| CI                                           | 0.61  | 0.06  | 0.22  | 0.79  | 1     | 0.55  |
+| A                                            | 0.37  | -0.33 | -0.23 | 0.41  | 0.55  | 1     |
+| Correlation   Matrix with Autocorrelation    |       |       |       |       |       |       |
+| RE                                           | 1     | -0.18 | 0.11  | 0.16  | 0.28  | 0.4   |
+| CC                                           | -0.18 | 1     | 0.26  | 0.1   | -0.1  | -0.57 |
+| OC                                           | 0.11  | 0.26  | 1     | 0.29  | 0.06  | 0     |
+| L                                            | 0.16  | 0.1   | 0.29  | 1     | -0.07 | 0.04  |
+| CI                                           | 0.28  | -0.1  | 0.06  | -0.07 | 1     | 0.11  |
+| A                                            | 0.4   | -0.57 | 0     | 0.04  | 0.11  | 1     |
+
+
+## 主成分分析
+
+相関のパターンをさらに分析するために、主成分分析を行う。  
+
+その前に、論文のAppendixを参考に相関行列の固有値に対して仮説検定を行う。  
+検定が有意であれば、ショックの中に共通因子があることになる
+```{r}
+eigenvalues <- eigen(cor(X_t_noauto))$values
+cumsum(eigenvalues)/(sum(eigenvalues))^2
+
+eigenvalues <- eigen(Inovations_cor)$values
+cumsum(eigenvalues)/(sum(eigenvalues))^2
+```
+
+
+相関行列に対して主成分分析を行う
+
+```{r}
+PCA_no <- prcomp(no_auto_cor, scale=T)
+PCA_eigen_no <- matrix(c(t(PCA_no$sdev),t(PCA_no$x)),nrow = 6) %>% data.frame()
+colnames(PCA_eigen_no) <- c('Eigenvalue','RE','CC','OC','L','CI','A')
+PCA <- prcomp(Inovations_cor, scale=T)
+PCA_eigen <- matrix(c(t(PCA$sdev),t(PCA$x)),nrow = 6) %>% data.frame()
+colnames(PCA_eigen) <- c('Eigenvalue','RE','CC','OC','L','CI','A')
+PCA_eigen_no
+PCA_eigen
+```
+
+CCとOCが、主成分に対して似たような傾向を示していて、最も高いものに対しては負、次に高いものに対しては正の値相関を示している。  
+企業系の3つのカテゴリーは、これらの要因に対して正の相関を見せていえる
+最大の主成分は、ビジネスか個人かを分けているように見えるが、その次はビジネスサイクル効果の方が大きいかもしれない?
+
+|                                                         |  Eigenvalue  |  RE   |  CC   |  OC   |  L    |  CI   |  A    |
+|---------------------------------------------------------|--------------|-------|-------|-------|-------|-------|-------|
+| Eigenvalue   and Factor Weights with No Autocorrelation |              |       |       |       |       |       |       |
+| Common Factor 1                                         | 0.11         | 1.42  | 0.43  | 0.77  | 0.57  | -2.25 | 0.9   |
+| Common Factor 2                                         | 0.23         | 0.54  | 0.03  | 1.01  | -1.59 | 0.51  | 0.55  |
+| Common Factor 3                                         | 0.34         | -0.25 | -1.33 | 0.94  | 0.34  | -0.13 | -0.3  |
+| Common Factor 4                                         | 0.64         | 0.8   | 0.04  | -0.01 | -0.02 | 0.13  | -0.95 |
+| Common Factor 5                                         | 2.08         | -0.16 | 0.41  | 0.44  | 0.24  | 0.15  | -0.11 |
+| Common Factor 6                                         | 2.6          | 0.29  | -0.09 | -0.02 | 0.3   | 0.35  | 0.28  |
+| Eigenvalue   and Factor Weights with Autocorrelation    |              |       |       |       |       |       |       |
+| Common Factor 1                                         | 0.41         | 0.61  | -0.76 | 0.33  | -0.14 | -0.26 | -1.15 |
+| Common Factor 2                                         | 0.66         | 0.74  | 0.46  | -0.02 | -0.64 | -0.53 | 0.28  |
+| Common Factor 3                                         | 0.75         | 0.49  | 0.22  | -0.78 | 0.64  | 0.03  | -0.2  |
+| Common Factor 4                                         | 1.13         | -0.15 | -0.2  | 0.12  | 0.42  | -0.77 | 0.21  |
+| Common Factor 5                                         | 1.61         | 0.34  | 0.14  | 0.53  | 0.37  | 0.21  | 0.15  |
+| Common Factor 6                                         | 2.3          | 0.21  | -0.47 | -0.13 | -0.04 | 0.13  | 0.36  |
+
+
+
+
+# 5.Conditional Default Rate Distributions
+
+考えたデフォルト分布がどれだけ条件付きの状態でデフォルト確率を表現できているか、確認していく。  
+観測されている因子の合計と観測されていない因子を用いて、潜在変数$Z_{it}$を示す
+$$
+Z_{i,t} = \sqrt{\rho}\left(\sqrt{1-\lambda^2}X_t + \lambda \sum_{j=1}^{J} a^{\star}_jY_{j,t} \right) + \sqrt{1-\rho}\epsilon_{1,t}.
+$$
+
 
 
 
