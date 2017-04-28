@@ -1,0 +1,38 @@
+---
+title: "Test_method"
+author: "Naoya Hieda"
+date: "`r format(Sys.time(), '%Y年%m月%d日')`"
+output:
+  html_document:
+    css: styles.css
+---
+
+# Durbin-Watoson-Test
+
+一般的に2に近いとよく0に近いほど正の自己相関  
+4に近いほど負の自己相関を持っているとされる
+$$
+DW = \frac{\sum_{t=2}(\epsilon_t-\epsilon_{t-1})^2}{\sum_{t=1}\epsilon_t^2}
+$$
+
+
+
+# Jack-Bera Test
+
+$$
+JB = \frac{n}{6}[S^2 + \frac{1}{4}(K-3)^2]
+$$
+nは標本サイズ、Sは標本歪度、Kは標本尖度  
+正規分布に従っていれば統計量 JB は漸近的に自由度 2 のカイ二乗分布に従う  
+
+> 小標本の場合、カイ二乗近似は過剰に敏感に働く。すなわち、実際には帰無仮説が正しくても、検定によって帰無仮説がしばしば棄却される。その上、p値の分布は単一分布から逸脱し右にひずんだ単峰の分布となる。特にp値が小さい場合は分布のひずみの影響が大きくなる。こうして、第一種の過誤率$\alpha$が上昇する。下表にカイ二乗分布から近似したp値を示す。小標本の場合p値が真の$\alpha$と異なるとわかる。
+
+MATLABで計算できるらしい。
+
+# A Eigen Value Test for a Covariance Matrix
+
+$$
+H:f(\lambda)=\frac{\lambda_{m+1}+\dots+\lambda_p}{(\lambda_1+\dots+\lambda_p)^2}\geq\delta
+$$
+
+$\delta$

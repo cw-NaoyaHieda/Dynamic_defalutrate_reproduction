@@ -128,7 +128,7 @@ un_defalut_rate <- c()
 std_error_q <- c()
 for(i in c(1:6)){
   f <- function (q) sqrt((qnorm(q)/sqrt(1 - factor_correlation[i]) - colMeans(pnorm_co_data)[i])^2)
-  opt_result <- optim(par=0,fn=f,method = 'Brent',lower=0,upper=1-1e-10,hessian = TRUE)
+  opt_result <- optim(par=0.1,fn=f,method = 'Brent',lower=0,upper=1-1e-10,hessian = TRUE)
   un_defalut_rate <- c(un_defalut_rate,opt_result$par)
   std_error_q <- c(std_error_q,sqrt(solve(opt_result$hessian)))
 }
@@ -257,7 +257,7 @@ Durbin-Watoson-Testを用いて、回帰の残差から自己相関を検定す�
 いずれの場合も95%の信頼区間に残差が存在することから独立であると言える。
 
 Jarque-Bera-Testを用いて、歪度と尖度が正規性の値から統計的に有意に異なるか検定する。モンテカルロ計算らしいがこっちは明らかに表と値が違う。
-[Jarque-Bera-Test](https://ja.wikipedia.org/wiki/%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E2%80%93%E3%83%99%E3%83%A9%E6%A4%9C%E5%AE%9A)
+[Jarque-Bera-Test](http://bio-info.biz/tips/r_jarque-bera_test.html)
 サンプルの歪度と尖度が正規性の値から有為に異なるかで正規分布かを検定する。信頼水準は5.99
 ```{r}
 DW_test <- sapply(Regression_AR,function(x) durbinWatsonTest(x$residuals))
@@ -313,17 +313,6 @@ REが最もほかの系列と相関が比較的高い
 
 相関のパターンをさらに分析するために、主成分分析を行う。  
 
-その前に、論文のAppendixを参考に相関行列の固有値に対して仮説検定を行う。  
-検定が有意であれば、ショックの中に共通因子があることになる
-```{r}
-eigenvalues <- eigen(cor(X_t_noauto))$values
-cumsum(eigenvalues)/(sum(eigenvalues))^2
-
-eigenvalues <- eigen(Inovations_cor)$values
-cumsum(eigenvalues)/(sum(eigenvalues))^2
-```
-
-
 相関行列に対して主成分分析を行う
 
 ```{r}
@@ -358,8 +347,15 @@ CCとOCが、主成分に対して似たような傾向を示していて、最�
 | Common Factor 5                                         | 1.61         | 0.34  | 0.14  | 0.53  | 0.37  | 0.21  | 0.15  |
 | Common Factor 6                                         | 2.3          | 0.21  | -0.47 | -0.13 | -0.04 | 0.13  | 0.36  |
 
+論文のAppendixを参考に相関行列の固有値に対して仮説検定を行う。  
+検定が有意であれば、ショックの中に共通因子があることになる
+```{r}
+eigenvalues <- eigen(cor(X_t_noauto))$values
+cumsum(eigenvalues)/(sum(eigenvalues))^2
 
-
+eigenvalues <- eigen(Inovations_cor)$values
+cumsum(eigenvalues)/(sum(eigenvalues))^2
+```
 
 # 5.Conditional Default Rate Distributions
 
