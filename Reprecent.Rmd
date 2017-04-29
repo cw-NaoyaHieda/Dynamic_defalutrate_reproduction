@@ -14,6 +14,9 @@ library(reshape2)
 library(ggplot2)
 library(car)
 library(normtest)
+Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jre7') # for 64-bit version
+library(rJava)
+library(xlsx)
 theme_set(theme_bw())
 ```
 
@@ -359,12 +362,58 @@ cumsum(eigenvalues)/(sum(eigenvalues))^2
 
 # 5.Conditional Default Rate Distributions
 
-考えたデフォルト分布がどれだけ条件付きの状態でデフォルト確率を表現できているか、確認していく。  
-観測されている因子の合計と観測されていない因子を用いて、潜在変数$Z_{it}$を示す
+## 5.1 Conditioning on Macroeconomic Variable
+銀行のポートフォリオにおけるリスク分析はVaRsやExpectedShortfallsなどの未来のポートフォリオの価値分布によるものが多い。  
+これらは典型的に無条件分布に対して計算される。  
+しかし、条件付きのリスクを計算することは興味深い。景気後退の際にポートフォリオがどのような挙動をするかを評価したいと思うかもしれない。ストレステストと呼ばれる。
+
+
+考えたデフォルト分布が、ストレステストの枠組みと分析に適した条件付きの状態で、デフォルト確率をどのように表現されるか考察される。  
+観測されている因子の合計と観測されていない因子を用いて、潜在変数$Z_{it}$を示す。先ほど$X_t$一つで表現されていたカテゴリーの要素にマクロ経済変数を追加した形になる。
 $$
 Z_{i,t} = \sqrt{\rho}\left(\sqrt{1-\lambda^2}X_t + \lambda \sum_{j=1}^{J} a^{\star}_jY_{j,t} \right) + \sqrt{1-\rho}\epsilon_{1,t}.
 $$
+$Y_{j,t}$は観測可能なマクロ経済変数で、条件を定めるので、そのプロセスを正確に定めない。  
+$X_{i,t}$は先ほどまでと同じ一時自己回帰モデルであり、$\epsilon,\eta_t$はiidを仮定する。$\lambda$は観測された、および観測されない因子の$Z_{i,t}$への寄与を決定する。
+
+無条件に、$Z_{i,t}$が単位分散であるために、Yの項を再スケーリングする。
+$$
+a_j=\frac{a_j^{\star}}{\sqrt{\Sigma_{k=1}^J\Sigma_{m=1}^Ja_ka_mCov(Y_{k,i}Y_{m,i})}}
+$$
+よって
+$$
+Z_{i,t} = \sqrt{\rho}\left(\sqrt{1-\lambda^2}X_t + \lambda a'Y \right) + \sqrt{1-\rho}\epsilon_{1,t}.
+$$
+となる。2章の時と同じ手順で条件付き損失分布が以下のようになる。
+$$
+W(\theta_t)\equiv \Phi\left( \frac{\sqrt{1-\rho}\Phi^{-1}(\theta_t)-\Phi^{-1}(q)+\sqrt{\rho}\sqrt{1-\lambda^2}\sqrt{\beta}X_{t-1} + \sqrt{\rho}\lambda a' Y}{\sqrt{\rho}\sqrt{1-\lambda^2}\sqrt{1-\beta}}\right)
+$$
+従って、変換損失率$\theta_t\equiv \Phi^{-1}(\theta_t)$は以下のガウス分布に従う。
+$$
+N\left(\frac{\Phi^{-1}(q)-\sqrt{\rho}\sqrt{1-\lambda^2}\sqrt{\beta}X_{t-1}-\sqrt{\rho}\lambda aY}{\sqrt{1-\rho}} , \frac{\rho(1-\lambda^2)(1-\beta)}{1-\rho}\right)
+$$
+プロセスとして以下のようになる。
+$$
+\tilde{\theta}_t= \sqrt{\beta}\tilde{\theta}_{t-1}+\frac{1-\sqrt{\beta}}{\sqrt{1-\rho}}\Phi^{-1}(q)\\
+-\frac{\sqrt{\rho}}{\sqrt{1-\rho}}\lambda a(Y_t-\sqrt{\beta}Y_{t-1})-\frac{\sqrt{\rho}\sqrt{1-\lambda^2}}{\sqrt{1-\rho}}\sqrt{1-\beta}\eta_t.
+$$
+
+## 5.2 Estimation
+先ほども使用したCreditCardとC&Iのデフォルト率を用いてストレステストを行う。  
+多因子ストレスを作成し、本モデルに当てはめるすることは可能であるが、今回は単変量および二変量の症例に限定する。  
+具体的には、米国の雇用率と工業生産を含むストレスを考慮する。  
+[Unemployment Rate](https://data.bls.gov/pdq/SurveyOutputServlet)  
+[Industrial Production]()
 
 
+```{r}
+Unemployment_rate<-read.xlsx2('data/SeriesReport-20170429073116_e1f8e3.xlsx',sheetIndex = 1,startRow = 12,endRow = 71,stringsAsFactors=FALSE)
+Unemployment_rate <- data.frame(lapply(Unemployment_rate,as.numeric))
+plot_d <- Unemployment_rate %>% melt('Year')
 
+
+strptime(paste(plot_d[,1],plot_d[,2],sep='-'),"%y-%m")
+ggplot(Unemployment_rate %>% melt('Year'),aes(x=Year,y=value))+geom_line()
+head(Unemployment_rate)
+```
 
