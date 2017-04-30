@@ -431,18 +431,17 @@ ggplot(INDPRO,aes(x=DATE,y=INDPRO))+geom_line() + ylab("INDPRO (2012=100)")
 Unemployment_rate_melt_dt <- plot_d[order(plot_d$date),]
 Unem <- Unemployment_rate_melt_dt[Unemployment_rate_melt_dt$date>as.POSIXct('1984-12-31') & Unemployment_rate_melt_dt$date<as.POSIXct('2008-1-1'),]
 
-head(Unem)
+
 Unem_normalise <- transform(Unem,normalised_value=Unem$value/sd(Unem$value))
+Unem_diff<-diff(Unem_normalise$normalised_value,lag = 3)
+tmp <- Unem_normalise$normalised_value[4:length(Unem_normalise$normalised_value) %% 3 == 0] + Unem_diff[1:length(Unem_diff) %% 3 == 0]
 
-tmp_diff<-diff(Unem_normalise$normalised_value,differences = 3)/3
-tmp <- Unem_normalise$normalised_value[1:length(Unem_normalise$normalised_value) %% 3 == 0] + tmp_diff[1:length(Unem_normalise$normalised_value) %% 3 == 0]
-
-tmp2 <- c()
+Unem_factor <- c()
 for(i in 1:(length(tmp)-4)){
-  tmp2 <- c(tmp2,tmp[i+4]-tmp[i])
+  Unem_factor <- c(Unem_factor,(tmp[i+4]-tmp[i]))
 }
 
-plot(tmp2,type="l")
+plot(Unem_factor,type="l")
 
 ```
 
@@ -450,12 +449,12 @@ plot(tmp2,type="l")
 INDPRO <- read.csv("data/INDPRO_4q.csv",stringsAsFactors=FALSE)
 INDPRO$DATE <- strptime(INDPRO$DATE,format="%Y-%m-%d")
 INDPRO$INDPRO <-INDPRO$INDPRO/sd(INDPRO$INDPRO)
-tmp <- c()
+INDPRO_factor <- c()
 for(i in 1:(length(INDPRO$INDPRO)-4)){
-  tmp <- c(tmp,(INDPRO$INDPRO[i+4]-INDPRO$INDPRO[i])/INDPRO$INDPRO[i])
+  INDPRO_factor <- c(INDPRO_factor,(INDPRO$INDPRO[i+4]-INDPRO$INDPRO[i])/INDPRO$INDPRO[i])
 }
 
-plot(tmp*100,type="l")
+plot(INDPRO_factor*100,type="l")
 
 ```
 
