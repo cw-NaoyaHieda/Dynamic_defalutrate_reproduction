@@ -28,7 +28,7 @@ theme_set(theme_bw())
 自己相関ありとなしの場合で、6つのローンカテゴリーのデータをモデルに当てはめる。  
 カテゴリーはそれぞれ、米国の不動産、クレジットカード、それ以外のローン、リース、工業、農業
 
-[Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm)
+[Federal Reserve Board charge-off-data](https://www.federalreserve.gov/releases/chargeoff/chgallsa.htm?raw=true)
 
 データの読み込みと必要なデータの抜き出し  
 年率換算されているので四半期毎の値に戻して、LGDの値で除算  
@@ -402,11 +402,12 @@ $$
 先ほども使用したCreditCardとC&Iのデフォルト率を用いてストレステストを行う。  
 多因子ストレスを作成し、本モデルに当てはめるすることは可能であるが、今回は単変量および二変量の症例に限定する。  
 具体的には、米国の雇用率と工業生産を含むストレスを考慮する。  
-[Unemployment Rate](https://data.bls.gov/pdq/SurveyOutputServlet)  
-[Industrial Production]()
+[Unemployment Rate](https://data.bls.gov/timeseries/LNS14000000)  
+[Industrial Production](https://fred.stlouisfed.org/series/INDPRO)
 
 
 ```{r}
+Sys.setlocale("LC_TIME", "C")
 Unemployment_rate <- read.xlsx2('data/SeriesReport-20170429073116_e1f8e3.xlsx',sheetIndex = 1,startRow = 12,endRow = 71,stringsAsFactors=FALSE)
 Unemployment_rate <- data.frame(lapply(Unemployment_rate,as.numeric))
 Unemployment_rate_melt <- Unemployment_rate %>% melt('Year')
@@ -417,14 +418,44 @@ ggplot(plot_d,aes(x=date,y=value))+geom_line()
 head(plot_d)
 ```
 
+
 ```{r}
-Unemployment_rate_melt_dt <- plot_d[order(plot_d$date),] %>% as.data.frame()
-tmp <- c()
-for(i in 1:nrow(Unemployment_rate_melt_dt)-11){
-  tmp <- c(tmp,mean(Unemployment_rate_melt_dt$value[i:(i+11)]))
-  
+INDPRO <- read.csv("data/INDPRO.csv",stringsAsFactors=FALSE)
+INDPRO$DATE <- strptime(INDPRO$DATE,format="%Y-%m-%d")
+ggplot(INDPRO,aes(x=DATE,y=INDPRO))+geom_line() + ylab("INDPRO (2012=100)")
+
+```
+
+
+```{r}
+Unemployment_rate_melt_dt <- plot_d[order(plot_d$date),]
+Unem <- Unemployment_rate_melt_dt[Unemployment_rate_melt_dt$date>as.POSIXct('1984-12-31') & Unemployment_rate_melt_dt$date<as.POSIXct('2008-1-1'),]
+
+head(Unem)
+Unem_normalise <- transform(Unem,normalised_value=Unem$value/sd(Unem$value))
+
+tmp_diff<-diff(Unem_normalise$normalised_value,differences = 3)/3
+tmp <- Unem_normalise$normalised_value[1:length(Unem_normalise$normalised_value) %% 3 == 0] + tmp_diff[1:length(Unem_normalise$normalised_value) %% 3 == 0]
+
+tmp2 <- c()
+for(i in 1:(length(tmp)-4)){
+  tmp2 <- c(tmp2,tmp[i+4]-tmp[i])
 }
 
-plot(tmp)
+plot(tmp2,type="l")
+
+```
+
+```{r}
+INDPRO <- read.csv("data/INDPRO_4q.csv",stringsAsFactors=FALSE)
+INDPRO$DATE <- strptime(INDPRO$DATE,format="%Y-%m-%d")
+INDPRO$INDPRO <-INDPRO$INDPRO/sd(INDPRO$INDPRO)
+tmp <- c()
+for(i in 1:(length(INDPRO$INDPRO)-4)){
+  tmp <- c(tmp,(INDPRO$INDPRO[i+4]-INDPRO$INDPRO[i])/INDPRO$INDPRO[i])
+}
+
+plot(tmp*100,type="l")
+
 ```
 
