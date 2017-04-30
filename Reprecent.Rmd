@@ -407,13 +407,24 @@ $$
 
 
 ```{r}
-Unemployment_rate<-read.xlsx2('data/SeriesReport-20170429073116_e1f8e3.xlsx',sheetIndex = 1,startRow = 12,endRow = 71,stringsAsFactors=FALSE)
+Unemployment_rate <- read.xlsx2('data/SeriesReport-20170429073116_e1f8e3.xlsx',sheetIndex = 1,startRow = 12,endRow = 71,stringsAsFactors=FALSE)
 Unemployment_rate <- data.frame(lapply(Unemployment_rate,as.numeric))
-plot_d <- Unemployment_rate %>% melt('Year')
+Unemployment_rate_melt <- Unemployment_rate %>% melt('Year')
+plot_d <- transform(Unemployment_rate_melt,
+                    date=strptime(paste(Unemployment_rate_melt[,1],Unemployment_rate_melt[,2],1,
+                                        sep='-'),format="%Y-%b-%d"))
+ggplot(plot_d,aes(x=date,y=value))+geom_line()
+head(plot_d)
+```
 
+```{r}
+Unemployment_rate_melt_dt <- plot_d[order(plot_d$date),] %>% as.data.frame()
+tmp <- c()
+for(i in 1:nrow(Unemployment_rate_melt_dt)-11){
+  tmp <- c(tmp,mean(Unemployment_rate_melt_dt$value[i:(i+11)]))
+  
+}
 
-strptime(paste(plot_d[,1],plot_d[,2],sep='-'),"%y-%m")
-ggplot(Unemployment_rate %>% melt('Year'),aes(x=Year,y=value))+geom_line()
-head(Unemployment_rate)
+plot(tmp)
 ```
 
