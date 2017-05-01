@@ -403,9 +403,8 @@ $$
 多因子ストレスを作成し、本モデルに当てはめるすることは可能であるが、今回は単変量および二変量の症例に限定する。  
 具体的には、米国の雇用率と工業生産を含むストレスを考慮する。  
 [Unemployment Rate](https://data.bls.gov/timeseries/LNS14000000)  
-[Industrial Production](https://fred.stlouisfed.org/series/INDPRO)
-
-
+[Industrial Production](https://fred.stlouisfed.org/series/INDPRO)  
+Unemployment Rateのデータそのもののプロット
 ```{r}
 Sys.setlocale("LC_TIME", "C")
 Unemployment_rate <- read.xlsx2('data/SeriesReport-20170429073116_e1f8e3.xlsx',sheetIndex = 1,startRow = 12,endRow = 71,stringsAsFactors=FALSE)
@@ -415,46 +414,52 @@ plot_d <- transform(Unemployment_rate_melt,
                     date=strptime(paste(Unemployment_rate_melt[,1],Unemployment_rate_melt[,2],1,
                                         sep='-'),format="%Y-%b-%d"))
 ggplot(plot_d,aes(x=date,y=value))+geom_line()
-head(plot_d)
 ```
 
-
+Industrial Productionのデータそのもののプロット  
+論文中では2002年のデータを100にしていたが、現在は2012年基準になっている
 ```{r}
 INDPRO <- read.csv("data/INDPRO.csv",stringsAsFactors=FALSE)
 INDPRO$DATE <- strptime(INDPRO$DATE,format="%Y-%m-%d")
 ggplot(INDPRO,aes(x=DATE,y=INDPRO))+geom_line() + ylab("INDPRO (2012=100)")
-
 ```
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch3.PNG?raw=true)
 
-
+Unemployment Rateのストレス因子  
+annual percentage changeの具体的な計算方法が分からなかったのでそれっぽくしただけ  
+雰囲気はつかめてるけど論文のものにくらべるとギザギザしている
 ```{r}
 Unemployment_rate_melt_dt <- plot_d[order(plot_d$date),]
 Unem <- Unemployment_rate_melt_dt[Unemployment_rate_melt_dt$date>as.POSIXct('1984-12-31') & Unemployment_rate_melt_dt$date<as.POSIXct('2008-1-1'),]
-
-
-Unem_normalise <- transform(Unem,normalised_value=Unem$value/sd(Unem$value))
-Unem_diff<-diff(Unem_normalise$normalised_value,lag = 3)
-tmp <- Unem_normalise$normalised_value[4:length(Unem_normalise$normalised_value) %% 3 == 0] + Unem_diff[1:length(Unem_diff) %% 3 == 0]
-
+Unem_diff<-c(0,diff(Unem$value))
+Unem<-transform(Unem,Unem_diff = Unem_diff)
 Unem_factor <- c()
-for(i in 1:(length(tmp)-4)){
-  Unem_factor <- c(Unem_factor,(tmp[i+4]-tmp[i]))
+for(i in 1:(length(Unem$Unem_diff)-11)){
+  Unem_factor <- c(Unem_factor,sum(Unem$Unem_diff[i:(i+11)]))
 }
+Unem_factor <- c(rep(0,11),Unem_factor/sd(Unem_factor))
+Unem <- transform(Unem,Unem_factor=Unem_factor)
 
-plot(Unem_factor,type="l")
+ggplot(Unem,aes(x=date,y=Unem_factor))+geom_line()
 
 ```
 
+Industrial Productionのストレス因子  
+こちらもUnemploy Rateと同様の計算方法なので、論文のものよりギザギザしている
 ```{r}
-INDPRO <- read.csv("data/INDPRO_4q.csv",stringsAsFactors=FALSE)
+INDPRO <- read.csv("data/INDPRO.csv",stringsAsFactors=FALSE)
 INDPRO$DATE <- strptime(INDPRO$DATE,format="%Y-%m-%d")
-INDPRO$INDPRO <-INDPRO$INDPRO/sd(INDPRO$INDPRO)
+INDPRO <- INDPRO[INDPRO$DATE > as.POSIXct('1985-12-30'),]
+diff_INDPRO=c(0,diff(c(INDPRO$INDPRO)))
+INDPRO <-transform(INDPRO,diff_INDPRO=diff_INDPRO)
 INDPRO_factor <- c()
-for(i in 1:(length(INDPRO$INDPRO)-4)){
-  INDPRO_factor <- c(INDPRO_factor,(INDPRO$INDPRO[i+4]-INDPRO$INDPRO[i])/INDPRO$INDPRO[i])
+for(i in 1:(length(INDPRO$INDPRO)-11)){
+  INDPRO_factor <- c(INDPRO_factor,sum(INDPRO$diff_INDPRO[i:(i+11)]))
 }
-
-plot(INDPRO_factor*100,type="l")
+INDPRO_factor <- c(rep(0,11),INDPRO_factor/sd(INDPRO_factor))
+INDPRO <-transform(INDPRO,INDPRO_factor=INDPRO_factor)
+ggplot(INDPRO,aes(x=DATE,y=INDPRO_factor))+geom_line()
 
 ```
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch4.PNG?raw=true)
 
