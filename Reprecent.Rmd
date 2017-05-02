@@ -312,7 +312,7 @@ REが最もほかの系列と相関が比較的高い
 | A                                            | 0.4   | -0.57 | 0     | 0.04  | 0.11  | 1     |
 
 
-## 主成分分析
+### 主成分分析
 
 相関のパターンをさらに分析するために、主成分分析を行う。  
 
@@ -354,7 +354,10 @@ CCとOCが、主成分に対して似たような傾向を示していて、最�
 検定が有意であれば、ショックの中に共通因子があることになる
 ```{r}
 eigenvalues <- eigen(cor(X_t_noauto))$values
-cumsum(eigenvalues)/(sum(eigenvalues))^2
+f_eigen <- cumsum(eigenvalues)/(sum(eigenvalues))^2
+(f_eigen - 0.95)
+qnorm(1-0.95)
+
 
 eigenvalues <- eigen(Inovations_cor)$values
 cumsum(eigenvalues)/(sum(eigenvalues))^2
@@ -429,19 +432,14 @@ Unemployment Rateのストレス因子
 annual percentage changeの具体的な計算方法が分からなかったのでそれっぽくしただけ  
 雰囲気はつかめてるけど論文のものにくらべるとギザギザしている
 ```{r}
-Unemployment_rate_melt_dt <- plot_d[order(plot_d$date),]
-Unem <- Unemployment_rate_melt_dt[Unemployment_rate_melt_dt$date>as.POSIXct('1984-12-31') & Unemployment_rate_melt_dt$date<as.POSIXct('2008-1-1'),]
-Unem_diff<-c(0,diff(Unem$value))
-Unem<-transform(Unem,Unem_diff = Unem_diff)
-Unem_factor <- c()
-for(i in 1:(length(Unem$Unem_diff)-11)){
-  Unem_factor <- c(Unem_factor,sum(Unem$Unem_diff[i:(i+11)]))
-}
-Unem_factor <- c(rep(0,11),Unem_factor/sd(Unem_factor))
-Unem <- transform(Unem,Unem_factor=Unem_factor)
-
-ggplot(Unem,aes(x=date,y=Unem_factor))+geom_line()
-
+Unemployment_factor <- read.xlsx2('data/SeriesReport-20170502052344_851aa1.xlsx',sheetIndex = 1,startRow = 12,endRow = 34,stringsAsFactors=FALSE)[,c(1,2,5,8,11)]
+Unemployment_factor <- data.frame(lapply(Unemployment_factor,as.numeric))
+Unemployment_factor_melt <- Unemployment_factor %>% melt('Year')
+Unemployment_factor_melt$value <- Unemployment_factor_melt$value/sd(Unemployment_factor_melt$value)
+plot_d <- transform(Unemployment_factor_melt,
+                    date=strptime(paste(Unemployment_factor_melt[,1],Unemployment_factor_melt[,2],1,
+                                        sep='-'),format="%Y-%b-%d"))
+ggplot(plot_d,aes(x=date,y=value))+geom_line()
 ```
 
 Industrial Productionのストレス因子  
@@ -463,3 +461,74 @@ ggplot(INDPRO,aes(x=DATE,y=INDPRO_factor))+geom_line()
 ```
 ![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch4.PNG?raw=true)
 
+## 5.3 Stress Estimates
+失業率をストレス因子とするクレジットカードデフォルト率とC&Iデフォルト率の単変量ストレス推定を行う。  
+先ほどまでと同じようにパラメータ推定を行う。  
+とりあえず、ここまでのデータを整理して出力
+```{r}
+Unem_stress_factor <- plot_d[,c("date","value")]
+Stress_X <- data.frame(X_t_auto[c(-4:-1),c('CC','CI')],Unem_stress_factor)
+head(Stress_X)
+```
+
+
+```{r}
+un_defalut_rate <- c()
+std_error_q <- c()
+rho <- c()
+lambda <- c()
+beta <- c()
+
+f <- function(parameter){
+  q <- parameter[1]
+  rho <- parameter[2]
+  lambda <- parameter[3]
+  beta <- parameter[4]
+  -sum(log(dnorm((
+    Stress_X[2:92,'CC']-
+      (qnorm(q)-sqrt(rho)*sqrt(1-lambda^2)*sqrt(beta)*Stress_X[1:91,'CC']-sqrt(rho)*lambda*Stress_X[1:91,'Unem_factor'])/
+      sqrt(1-rho)
+        )
+      )))
+}
+
+
+
+```
+
+|                                         | CC     |            | CI     |            |
+|-----------------------------------------|--------|------------|--------|------------|
+| Factor correlation $\rho$(%)            | 0.6    |  (-3.83)   | 4.24   |  (-1.87)   |
+| Unconditional default probability q (%) | 1.67   |  (-16.15)  | 0.38   |  (-2.75)   |
+| AR(1) parameter $\beta$(%)              | 68.14  |  (-8.32)   | 89.58  |  (-14.57)  |
+| Stress coefficient $\lambda$(%)         | -37.56 |  (-2.88)   | -26.22 |  (-2.34)   |]
+
+|                                                    | CI     |            |
+|----------------------------------------------------|--------|------------|
+| Factor correlation $\rho$(%)                       | 4.18   |  (-1.94)   |
+| Unconditional default probability q (%)            | 0.38   |  (-3.01)   |
+| AR(1) parameter $\beta$(%)                         | 89.38  |  (-14.99)  |
+| Unemployment coeffcient $a_u\lambda$(%)            | -23.18 |  (-1.92)   |
+| Industrial production coefficient $a_{ip}\lambda$(%) | 5.37   |  (-0.56)   |
+
+## 5.4 Stressed Default Rate Distributions
+
+
+```{r}
+tmp <- read.xlsx2('data/SeriesReport-20170502035518_8b7173.xlsx',sheetIndex = 1,startRow = 12,endRow = 17,stringsAsFactors=FALSE)[-1,]
+tmp2 <- tmp %>% melt("Year") 
+ts.plot((as.numeric(tmp2$value[order(tmp2$Year)])-mean(as.numeric(tmp2$value)))/sd(as.numeric(tmp2$value)))
+
+
+
+tmp <- read.xlsx2('data/SeriesReport-20170502051015_0e6fbd.xlsx',sheetIndex = 1,startRow = 12,endRow = 16,stringsAsFactors=FALSE)[,c(1,2,5,7,10)]
+tmp2 <- tmp %>% melt("Year") 
+ts.plot((as.numeric(tmp2$value[order(tmp2$Year)])))
+ts.plot((as.numeric(tmp2$value[order(tmp2$Year)]))/sd(as.numeric(tmp2$value)))
+
+```
+
+
+
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch5.PNG?raw=true)
+![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch6.PNG?raw=true)
