@@ -512,23 +512,39 @@ f <- function(parameter){
 | Industrial production coefficient $a_{ip}\lambda$(%) | 5.37   |  (-0.56)   |
 
 ## 5.4 Stressed Default Rate Distributions
-
+一個前の節でのパラメータ推定ができたら、それに合わせてモンテカルロシミュレーション
 
 ```{r}
-tmp <- read.xlsx2('data/SeriesReport-20170502035518_8b7173.xlsx',sheetIndex = 1,startRow = 12,endRow = 17,stringsAsFactors=FALSE)[-1,]
-tmp2 <- tmp %>% melt("Year") 
-ts.plot((as.numeric(tmp2$value[order(tmp2$Year)])-mean(as.numeric(tmp2$value)))/sd(as.numeric(tmp2$value)))
-
-
-
 tmp <- read.xlsx2('data/SeriesReport-20170502051015_0e6fbd.xlsx',sheetIndex = 1,startRow = 12,endRow = 16,stringsAsFactors=FALSE)[,c(1,2,5,7,10)]
 tmp2 <- tmp %>% melt("Year") 
 ts.plot((as.numeric(tmp2$value[order(tmp2$Year)])))
-ts.plot((as.numeric(tmp2$value[order(tmp2$Year)]))/sd(as.numeric(tmp2$value)))
-
+ts.plot((as.numeric(tmp2$value[order(tmp2$Year)]))/sd(Unemployment_rate_melt$value))
 ```
-
-
 
 ![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch5.PNG?raw=true)
 ![](https://github.com/naoya1218/Dynamic_defalutrate_reproduction/blob/master/jp_trance/figure/ch6.PNG?raw=true)
+
+
+
+# 6.Capital Implications
+##6.1 Implied Capital
+考えてきたモデルが自己相関を持つ場合にVaRなどの資本モデリングにどう影響するのかを計算する　　
+Gordyが示すように、周辺VaR(MVaR)が、LGDの値と$X_tの\alpha$分位点の条件付きで、以下のように示すことができる。
+$$
+MVaR_{\alpha}=LGD \times \Phi\left(\frac{\Phi^{-1}(q)-\sqrt{\rho}\sqrt{\beta}X_{t-1}-\sqrt{\rho}\sqrt{1-\beta}\Phi^{-1}(\alpha)}{\sqrt{1-\rho}} \right)\\
+=LGD \times \Phi\left(\sqrt{1-\rho\beta} \frac{\Phi^{-1}(q_t)-\sqrt{\rho}\sqrt{1-\beta}\Phi^{-1}(\alpha)}{\sqrt{1-\rho}} \right)
+$$
+また,BaselCapitalFormula(予期せぬ損失)が
+$$
+BaselCapitalFormula=LGD\times\Phi(\frac{\Phi^{-1}(q_t)+\sqrt{\rho}\sqrt{1-\beta}\Phi(\alpha^{\star})}{\sqrt{1-\rho}})-LGD\times q
+$$
+ここで$\alpha^{\star}$は$1-\alpha$に等しい。
+
+
+## 6.2 Regulatory Implications
+
+
+
+
+
+
